@@ -54,6 +54,12 @@ MISC
   ctf misc base <value> --from-base N --to-base N
   ctf misc timestamp <unix>              Convert Unix timestamp.
 
+WORKSPACE / FLAGS
+  ctf workspace new <name>               Create structured challenge workspace.
+  ctf workspace note <name> <note>       Append challenge note.
+  ctf workspace list                     List workspaces.
+  ctf flags scan <file-or-text>           Search for flag-like strings.
+
 Rule of thumb:
   Don't know the category? -> ctf solve
   Know the category?       -> ctf <category> <action>

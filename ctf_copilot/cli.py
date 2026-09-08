@@ -3,16 +3,17 @@ from __future__ import annotations
 import argparse
 import datetime
 import json
+import shutil
+import subprocess
 from collections import Counter
 from pathlib import Path
 
 from .commands_text import COMMANDS
-from .core import caesar, decode, recursive, resolve, scan, nmap, strings, xor_candidates
+from .core import caesar, decode, flags, recursive, resolve, scan, nmap, strings, xor_candidates
 from .solve import solve as solve_target
 from .tooling import binary_triage, forensic_triage, run_tool, summarize_tools, which
 from .web import analyze as web_analyze, fetch as web_fetch, jwt as web_jwt, render as web_render
 from .webtest import run_tests as web_run_tests
-
 
 MORSE = {
     '.-':'A','-...':'B','-.-.':'C','-..':'D','.':'E','..-.':'F','--.':'G','....':'H','..':'I',
@@ -180,6 +181,36 @@ def _web_test(args) -> None:
     print(web_run_tests(args.url, args.headers, args.methods, args.xss, args.sqli))
 
 
+def _workspace_base() -> Path:
+    return Path.home() / '.ctf-copilot' / 'workspaces'
+
+
+def _workspace_new(name: str) -> None:
+    root = _workspace_base() / name
+    for part in ('files', 'extracted', 'scripts', 'output'):
+        (root / part).mkdir(parents=True, exist_ok=True)
+    notes = root / 'notes.md'
+    if not notes.exists():
+        notes.write_text(f'# {name}\n\n')
+    print(root)
+
+
+def _workspace_note(name: str, note: str) -> None:
+    root = _workspace_base() / name
+    root.mkdir(parents=True, exist_ok=True)
+    with (root / 'notes.md').open('a', encoding='utf-8') as fh:
+        fh.write(note + '\n')
+    print(root / 'notes.md')
+
+
+def _workspace_list() -> None:
+    base = _workspace_base()
+    if not base.exists():
+        print('No workspaces yet.')
+        return
+    _print_lines(sorted(x.name for x in base.iterdir() if x.is_dir()))
+
+
 def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(
         prog='ctf',
@@ -278,6 +309,21 @@ def build_parser() -> argparse.ArgumentParser:
     z.set_defaults(fn=lambda a: print(format(int(a.value, a.from_base), {2:'b',8:'o',10:'d',16:'x'}[a.to_base])))
     z = misc.add_parser('timestamp', help='Convert Unix timestamp to local ISO time')
     z.add_argument('value'); z.set_defaults(fn=lambda a: print(datetime.datetime.fromtimestamp(float(a.value)).astimezone().isoformat()))
+
+    q = sub.add_parser('workspace', help='Organize challenge notes and artifacts')
+    workspace = q.add_subparsers(dest='action', required=True)
+    z = workspace.add_parser('new', help='Create a structured challenge workspace')
+    z.add_argument('name'); z.set_defaults(fn=lambda a: _workspace_new(a.name))
+    z = workspace.add_parser('note', help='Append a note to a workspace')
+    z.add_argument('name'); z.add_argument('note'); z.set_defaults(fn=lambda a: _workspace_note(a.name, a.note))
+    z = workspace.add_parser('list', help='List challenge workspaces')
+    z.set_defaults(fn=lambda a: _workspace_list())
+
+    q = sub.add_parser('flags', help='Search text or a text file for flag-like strings')
+    flags_sub = q.add_subparsers(dest='action', required=True)
+    z = flags_sub.add_parser('scan', help='Scan file or supplied text')
+    z.add_argument('value')
+    z.set_defaults(fn=lambda a: _print_lines(flags(Path(a.value).read_text(errors='ignore') if Path(a.value).is_file() else a.value)) or None)
 
     q = sub.add_parser('tools', help='Audit useful Kali/CTF tools installed on this machine')
     q.set_defaults(fn=lambda a: print(summarize_tools()))
