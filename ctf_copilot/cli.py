@@ -91,6 +91,26 @@ def _reverse_disasm(path: str) -> None:
     print(out or '(no disassembly output)')
 
 
+def _pwn_checksec(path: str) -> None:
+    p = Path(path)
+    if not p.is_file():
+        raise SystemExit(f'Not a file: {p}')
+    if not which('checksec'):
+        raise SystemExit('checksec is not installed.')
+    _, out = run_tool(['checksec', '--file=' + str(p)], timeout=30, max_output=40_000)
+    print(out or '(no checksec output)')
+
+
+def _pwn_rop(path: str) -> None:
+    p = Path(path)
+    if not p.is_file():
+        raise SystemExit(f'Not a file: {p}')
+    if not which('ROPgadget'):
+        raise SystemExit('ROPgadget is not installed.')
+    _, out = run_tool(['ROPgadget', '--binary', str(p), '--only', 'pop|ret|leave'], timeout=45, max_output=80_000)
+    print(out or '(no matching gadgets found)')
+
+
 def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(
         prog='ctf',
@@ -134,6 +154,15 @@ def build_parser() -> argparse.ArgumentParser:
     z.add_argument('path'); z.set_defaults(fn=lambda a: _reverse_strings(a.path))
     z = reverse.add_parser('disasm', help='Disassemble with objdump')
     z.add_argument('path'); z.set_defaults(fn=lambda a: _reverse_disasm(a.path))
+
+    q = sub.add_parser('pwn', help='Binary-exploitation helpers')
+    pwn = q.add_subparsers(dest='action', required=True)
+    z = pwn.add_parser('triage', help='Binary/pwn first pass')
+    z.add_argument('path'); z.set_defaults(fn=lambda a: print(binary_triage(a.path)))
+    z = pwn.add_parser('checksec', help='Show NX/PIE/Canary/RELRO')
+    z.add_argument('path'); z.set_defaults(fn=lambda a: _pwn_checksec(a.path))
+    z = pwn.add_parser('rop', help='Preview useful ROP gadgets')
+    z.add_argument('path'); z.set_defaults(fn=lambda a: _pwn_rop(a.path))
 
     q = sub.add_parser('tools', help='Audit useful Kali/CTF tools installed on this machine')
     q.set_defaults(fn=lambda a: print(summarize_tools()))

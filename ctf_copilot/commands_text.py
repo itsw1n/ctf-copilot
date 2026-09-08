@@ -26,6 +26,11 @@ REVERSE
   ctf reverse strings <binary>           High-signal strings.
   ctf reverse disasm <binary>            objdump disassembly.
 
+PWN
+  ctf pwn triage <binary>                Binary/pwn first pass.
+  ctf pwn checksec <binary>              NX/PIE/Canary/RELRO.
+  ctf pwn rop <binary>                   Preview useful ROP gadgets.
+
 Rule of thumb:
   Don't know the category? -> ctf solve
   Know the category?       -> ctf <category> <action>
