@@ -49,6 +49,11 @@ OSINT
   ctf osint domain <domain>              Passive DNS + WHOIS when available.
   ctf osint username <username>          Generate common profile leads.
 
+MISC
+  ctf misc morse <text>                  Decode Morse.
+  ctf misc base <value> --from-base N --to-base N
+  ctf misc timestamp <unix>              Convert Unix timestamp.
+
 Rule of thumb:
   Don't know the category? -> ctf solve
   Know the category?       -> ctf <category> <action>

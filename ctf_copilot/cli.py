@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import datetime
 import json
 from collections import Counter
 from pathlib import Path
@@ -11,6 +12,13 @@ from .solve import solve as solve_target
 from .tooling import binary_triage, forensic_triage, run_tool, summarize_tools, which
 from .web import analyze as web_analyze, fetch as web_fetch, jwt as web_jwt, render as web_render
 from .webtest import run_tests as web_run_tests
+
+
+MORSE = {
+    '.-':'A','-...':'B','-.-.':'C','-..':'D','.':'E','..-.':'F','--.':'G','....':'H','..':'I',
+    '.---':'J','-.-':'K','.-..':'L','--':'M','-.':'N','---':'O','.--.':'P','--.-':'Q','.-.':'R',
+    '...':'S','-':'T','..-':'U','...-':'V','.--':'W','-..-':'X','-.--':'Y','--..':'Z'
+}
 
 
 def _print_lines(rows):
@@ -260,6 +268,16 @@ def build_parser() -> argparse.ArgumentParser:
     z.add_argument('domain'); z.set_defaults(fn=lambda a: _osint_domain(a.domain))
     z = osint.add_parser('username', help='Generate common username profile leads')
     z.add_argument('username'); z.set_defaults(fn=lambda a: _osint_username(a.username))
+
+    q = sub.add_parser('misc', help='Miscellaneous CTF helpers')
+    misc = q.add_subparsers(dest='action', required=True)
+    z = misc.add_parser('morse', help='Decode Morse')
+    z.add_argument('value'); z.set_defaults(fn=lambda a: print(' '.join(''.join(MORSE.get(x, '?') for x in word.split()) for word in a.value.split(' / '))))
+    z = misc.add_parser('base', help='Convert between bases 2/8/10/16')
+    z.add_argument('value'); z.add_argument('--from-base', type=int, choices=[2,8,10,16], required=True); z.add_argument('--to-base', type=int, choices=[2,8,10,16], required=True)
+    z.set_defaults(fn=lambda a: print(format(int(a.value, a.from_base), {2:'b',8:'o',10:'d',16:'x'}[a.to_base])))
+    z = misc.add_parser('timestamp', help='Convert Unix timestamp to local ISO time')
+    z.add_argument('value'); z.set_defaults(fn=lambda a: print(datetime.datetime.fromtimestamp(float(a.value)).astimezone().isoformat()))
 
     q = sub.add_parser('tools', help='Audit useful Kali/CTF tools installed on this machine')
     q.set_defaults(fn=lambda a: print(summarize_tools()))
