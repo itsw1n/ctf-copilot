@@ -1,0 +1,18 @@
+[build-system]
+requires=["setuptools>=68","wheel"]
+build-backend="setuptools.build_meta"
+
+[project]
+name="ctf-copilot"
+version="0.5.0"
+description="Beginner-friendly CTF workflow copilot with clear category-based commands"
+readme="README.md"
+requires-python=">=3.10"
+dependencies=[]
+
+[project.scripts]
+ctf="ctf_copilot.cli:main"
+
+[tool.setuptools.packages.find]
+where=["."]
+include=["ctf_copilot*"]
