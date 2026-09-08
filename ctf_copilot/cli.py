@@ -7,7 +7,7 @@ from pathlib import Path
 from .commands_text import COMMANDS
 from .core import caesar, decode, recursive, strings, xor_candidates
 from .solve import solve as solve_target
-from .tooling import forensic_triage, run_tool, summarize_tools, which
+from .tooling import binary_triage, forensic_triage, run_tool, summarize_tools, which
 
 
 def _print_lines(rows):
@@ -69,6 +69,28 @@ def _forensics_hex(path: str, count: int) -> None:
         print(fh.read(count).hex(' '))
 
 
+def _reverse_strings(path: str) -> None:
+    p = Path(path)
+    if not p.is_file():
+        raise SystemExit(f'Not a file: {p}')
+    if not which('strings'):
+        raise SystemExit('strings is not installed.')
+    _, out = run_tool(['strings', '-a', '-n', '4', str(p)], timeout=30, max_output=120_000)
+    keywords = ('flag','password','correct','wrong','secret','admin','success','fail','key')
+    hits = [line for line in out.splitlines() if any(k in line.lower() for k in keywords)]
+    _print_lines(hits or ['No obvious high-signal strings found.'])
+
+
+def _reverse_disasm(path: str) -> None:
+    p = Path(path)
+    if not p.is_file():
+        raise SystemExit(f'Not a file: {p}')
+    if not which('objdump'):
+        raise SystemExit('objdump is not installed.')
+    _, out = run_tool(['objdump', '-d', str(p)], timeout=45, max_output=120_000)
+    print(out or '(no disassembly output)')
+
+
 def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(
         prog='ctf',
@@ -103,6 +125,15 @@ def build_parser() -> argparse.ArgumentParser:
     z = forensic.add_parser('hex', help='Show beginning of file as hex')
     z.add_argument('path'); z.add_argument('--bytes', type=int, default=256)
     z.set_defaults(fn=lambda a: _forensics_hex(a.path, max(1, min(a.bytes, 4096))))
+
+    q = sub.add_parser('reverse', help='Reverse-engineering helpers')
+    reverse = q.add_subparsers(dest='action', required=True)
+    z = reverse.add_parser('triage', help='Binary first pass: file/checksec/readelf/strings/ROP preview')
+    z.add_argument('path'); z.set_defaults(fn=lambda a: print(binary_triage(a.path)))
+    z = reverse.add_parser('strings', help='Show high-signal reversing strings')
+    z.add_argument('path'); z.set_defaults(fn=lambda a: _reverse_strings(a.path))
+    z = reverse.add_parser('disasm', help='Disassemble with objdump')
+    z.add_argument('path'); z.set_defaults(fn=lambda a: _reverse_disasm(a.path))
 
     q = sub.add_parser('tools', help='Audit useful Kali/CTF tools installed on this machine')
     q.set_defaults(fn=lambda a: print(summarize_tools()))

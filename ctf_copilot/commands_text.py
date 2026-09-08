@@ -21,6 +21,11 @@ FORENSICS
   ctf forensics strings <file>           Printable strings.
   ctf forensics hex <file>               Hex preview.
 
+REVERSE
+  ctf reverse triage <binary>            Binary first pass.
+  ctf reverse strings <binary>           High-signal strings.
+  ctf reverse disasm <binary>            objdump disassembly.
+
 Rule of thumb:
   Don't know the category? -> ctf solve
   Know the category?       -> ctf <category> <action>
