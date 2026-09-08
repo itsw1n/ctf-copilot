@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import json
 from collections import Counter
 from pathlib import Path
 
@@ -8,6 +9,8 @@ from .commands_text import COMMANDS
 from .core import caesar, decode, recursive, resolve, scan, nmap, strings, xor_candidates
 from .solve import solve as solve_target
 from .tooling import binary_triage, forensic_triage, run_tool, summarize_tools, which
+from .web import analyze as web_analyze, fetch as web_fetch, jwt as web_jwt, render as web_render
+from .webtest import run_tests as web_run_tests
 
 
 def _print_lines(rows):
@@ -124,6 +127,21 @@ def _network_scan(host: str, ports: str | None, timeout: float) -> None:
         print(f'{port}/tcp OPEN {service}')
 
 
+def _web_endpoints(url: str) -> None:
+    info = web_analyze(url)
+    rows = info['endpoints'] + [ep for eps in info['script_endpoints'].values() for ep in eps]
+    _print_lines(list(dict.fromkeys(rows)) or ['No endpoint-like paths found.'])
+
+
+def _web_test(args) -> None:
+    if not args.confirm_authorized:
+        raise SystemExit(
+            'Refusing active probes without --confirm-authorized. '
+            'Use only on CTF targets or systems you are authorized to test.'
+        )
+    print(web_run_tests(args.url, args.headers, args.methods, args.xss, args.sqli))
+
+
 def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(
         prog='ctf',
@@ -134,6 +152,25 @@ def build_parser() -> argparse.ArgumentParser:
     q = sub.add_parser('solve', help="First command when you don't know where to start")
     q.add_argument('target', help='File, URL, or text')
     q.set_defaults(fn=lambda a: print(solve_target(a.target)))
+
+    q = sub.add_parser('web', help='Web exploitation helpers')
+    web = q.add_subparsers(dest='action', required=True)
+    z = web.add_parser('analyze', help='Inspect page, forms, scripts, cookies, endpoints')
+    z.add_argument('url'); z.set_defaults(fn=lambda a: print(web_render(web_analyze(a.url))))
+    z = web.add_parser('test', help='Controlled active probes on an authorized target')
+    z.add_argument('url'); z.add_argument('--confirm-authorized', action='store_true')
+    z.add_argument('--headers', action='store_true'); z.add_argument('--methods', action='store_true')
+    z.add_argument('--xss', action='store_true'); z.add_argument('--sqli', action='store_true')
+    z.set_defaults(fn=_web_test)
+    z = web.add_parser('endpoints', help='Extract endpoint-like paths from HTML/JS')
+    z.add_argument('url'); z.set_defaults(fn=lambda a: _web_endpoints(a.url))
+    z = web.add_parser('headers', help='Show response headers')
+    z.add_argument('url'); z.set_defaults(fn=lambda a: _print_lines(f'{k}: {v}' for k, v in web_fetch(a.url)[2].items()))
+    z = web.add_parser('jwt', help='Decode JWT header and payload')
+    z.add_argument('token'); z.set_defaults(fn=lambda a: print(json.dumps(web_jwt(a.token), indent=2) if web_jwt(a.token) else 'Not a decodable JWT-like token.'))
+    z = web.add_parser('compare', help='Compare status and body size for two URLs')
+    z.add_argument('url1'); z.add_argument('url2')
+    z.set_defaults(fn=lambda a: print(f"A: status={web_fetch(a.url1)[0]} size={len(web_fetch(a.url1)[3])}\nB: status={web_fetch(a.url2)[0]} size={len(web_fetch(a.url2)[3])}"))
 
     q = sub.add_parser('crypto', help='Cryptography and encoding helpers')
     crypto = q.add_subparsers(dest='action', required=True)
