@@ -8,6 +8,13 @@ START HERE
   ctf tools                              Check useful Kali tools.
   ctf commands                           Show this compact reference.
 
+CRYPTO
+  ctf crypto analyze <text>              Detect/follow likely encoding layers.
+  ctf crypto decode <text>               Auto-decode recursively.
+  ctf crypto decode <text> --kind hex    Decode a specific format.
+  ctf crypto xor <hex>                   Try single-byte XOR candidates.
+  ctf crypto frequency <text>            Character-frequency analysis.
+
 Rule of thumb:
   Don't know the category? -> ctf solve
   Know the category?       -> ctf <category> <action>
