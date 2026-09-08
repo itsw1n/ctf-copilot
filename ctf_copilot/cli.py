@@ -127,6 +127,36 @@ def _network_scan(host: str, ports: str | None, timeout: float) -> None:
         print(f'{port}/tcp OPEN {service}')
 
 
+def _osint_domain(domain: str) -> None:
+    print(f'Domain: {domain}')
+    try:
+        ips = resolve(domain)
+        print('Resolved IPs:')
+        _print_lines([f'  {ip}' for ip in ips])
+    except Exception as exc:
+        print(f'Resolution failed: {exc}')
+    if which('whois'):
+        _, out = run_tool(['whois', domain], timeout=30, max_output=50_000)
+        if out:
+            print('\nWHOIS:')
+            print(out)
+    else:
+        print('\nWHOIS tool not installed; DNS resolution only.')
+
+
+def _osint_username(username: str) -> None:
+    # Offline lead generation only; it does not claim the profiles exist.
+    sites = [
+        ('GitHub', f'https://github.com/{username}'),
+        ('GitLab', f'https://gitlab.com/{username}'),
+        ('Reddit', f'https://www.reddit.com/user/{username}'),
+    ]
+    print(f'Username leads for: {username}')
+    print('These are search leads, not confirmed accounts:')
+    for name, url in sites:
+        print(f'  {name:<8} {url}')
+
+
 def _web_endpoints(url: str) -> None:
     info = web_analyze(url)
     rows = info['endpoints'] + [ep for eps in info['script_endpoints'].values() for ep in eps]
@@ -223,6 +253,13 @@ def build_parser() -> argparse.ArgumentParser:
     z.set_defaults(fn=lambda a: _network_scan(a.host, a.ports, a.timeout))
     z = network.add_parser('services', help='Nmap service/version detection')
     z.add_argument('host'); z.set_defaults(fn=lambda a: print(nmap(a.host) or 'nmap not installed or no output.'))
+
+    q = sub.add_parser('osint', help='Passive OSINT helpers')
+    osint = q.add_subparsers(dest='action', required=True)
+    z = osint.add_parser('domain', help='Passive domain resolution and WHOIS when available')
+    z.add_argument('domain'); z.set_defaults(fn=lambda a: _osint_domain(a.domain))
+    z = osint.add_parser('username', help='Generate common username profile leads')
+    z.add_argument('username'); z.set_defaults(fn=lambda a: _osint_username(a.username))
 
     q = sub.add_parser('tools', help='Audit useful Kali/CTF tools installed on this machine')
     q.set_defaults(fn=lambda a: print(summarize_tools()))

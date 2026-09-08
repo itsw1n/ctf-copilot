@@ -45,6 +45,10 @@ NETWORK
   ctf network scan <host>                Common TCP-port scan.
   ctf network services <host>            Nmap service/version detection.
 
+OSINT
+  ctf osint domain <domain>              Passive DNS + WHOIS when available.
+  ctf osint username <username>          Generate common profile leads.
+
 Rule of thumb:
   Don't know the category? -> ctf solve
   Know the category?       -> ctf <category> <action>
