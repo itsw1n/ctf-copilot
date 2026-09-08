@@ -2,11 +2,12 @@ from __future__ import annotations
 
 import argparse
 from collections import Counter
+from pathlib import Path
 
 from .commands_text import COMMANDS
-from .core import caesar, decode, recursive, xor_candidates
+from .core import caesar, decode, recursive, strings, xor_candidates
 from .solve import solve as solve_target
-from .tooling import summarize_tools
+from .tooling import forensic_triage, run_tool, summarize_tools, which
 
 
 def _print_lines(rows):
@@ -38,6 +39,36 @@ def _crypto_decode(value: str, kind: str) -> None:
         print(decode(kind, value))
 
 
+def _forensics_metadata(path: str) -> None:
+    p = Path(path)
+    if not p.is_file():
+        raise SystemExit(f'Not a file: {p}')
+    if not which('exiftool'):
+        raise SystemExit('exiftool is not installed.')
+    _, out = run_tool(['exiftool', str(p)], timeout=30, max_output=80_000)
+    print(out or '(no metadata output)')
+
+
+def _forensics_strings(path: str) -> None:
+    p = Path(path)
+    if not p.is_file():
+        raise SystemExit(f'Not a file: {p}')
+    if which('strings'):
+        _, out = run_tool(['strings', '-a', '-n', '4', str(p)], timeout=30, max_output=120_000)
+        print(out or '(no printable strings)')
+    else:
+        data = p.read_bytes()[:8_000_000]
+        _print_lines(strings(data))
+
+
+def _forensics_hex(path: str, count: int) -> None:
+    p = Path(path)
+    if not p.is_file():
+        raise SystemExit(f'Not a file: {p}')
+    with p.open('rb') as fh:
+        print(fh.read(count).hex(' '))
+
+
 def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(
         prog='ctf',
@@ -60,6 +91,18 @@ def build_parser() -> argparse.ArgumentParser:
     z.add_argument('value'); z.set_defaults(fn=lambda a: _print_lines(f'key=0x{k:02x} score={score:.3f} text={text[:120]}' for score, k, text in xor_candidates(a.value)))
     z = crypto.add_parser('frequency', help='Character-frequency analysis')
     z.add_argument('value'); z.set_defaults(fn=lambda a: _print_lines(f'{repr(ch)} {count}' for ch, count in Counter(a.value).most_common()))
+
+    q = sub.add_parser('forensics', help='Forensics triage and inspection')
+    forensic = q.add_subparsers(dest='action', required=True)
+    z = forensic.add_parser('triage', help='file + metadata + binwalk + interesting strings')
+    z.add_argument('path'); z.set_defaults(fn=lambda a: print(forensic_triage(a.path)))
+    z = forensic.add_parser('metadata', help='Show metadata with ExifTool')
+    z.add_argument('path'); z.set_defaults(fn=lambda a: _forensics_metadata(a.path))
+    z = forensic.add_parser('strings', help='Extract printable strings')
+    z.add_argument('path'); z.set_defaults(fn=lambda a: _forensics_strings(a.path))
+    z = forensic.add_parser('hex', help='Show beginning of file as hex')
+    z.add_argument('path'); z.add_argument('--bytes', type=int, default=256)
+    z.set_defaults(fn=lambda a: _forensics_hex(a.path, max(1, min(a.bytes, 4096))))
 
     q = sub.add_parser('tools', help='Audit useful Kali/CTF tools installed on this machine')
     q.set_defaults(fn=lambda a: print(summarize_tools()))

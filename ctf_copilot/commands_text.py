@@ -15,6 +15,12 @@ CRYPTO
   ctf crypto xor <hex>                   Try single-byte XOR candidates.
   ctf crypto frequency <text>            Character-frequency analysis.
 
+FORENSICS
+  ctf forensics triage <file>            First pass: file/ExifTool/Binwalk/strings.
+  ctf forensics metadata <file>          ExifTool metadata.
+  ctf forensics strings <file>           Printable strings.
+  ctf forensics hex <file>               Hex preview.
+
 Rule of thumb:
   Don't know the category? -> ctf solve
   Know the category?       -> ctf <category> <action>
