@@ -31,6 +31,11 @@ PWN
   ctf pwn checksec <binary>              NX/PIE/Canary/RELRO.
   ctf pwn rop <binary>                   Preview useful ROP gadgets.
 
+NETWORK
+  ctf network resolve <host>             DNS/IP resolution.
+  ctf network scan <host>                Common TCP-port scan.
+  ctf network services <host>            Nmap service/version detection.
+
 Rule of thumb:
   Don't know the category? -> ctf solve
   Know the category?       -> ctf <category> <action>

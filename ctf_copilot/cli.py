@@ -5,7 +5,7 @@ from collections import Counter
 from pathlib import Path
 
 from .commands_text import COMMANDS
-from .core import caesar, decode, recursive, strings, xor_candidates
+from .core import caesar, decode, recursive, resolve, scan, nmap, strings, xor_candidates
 from .solve import solve as solve_target
 from .tooling import binary_triage, forensic_triage, run_tool, summarize_tools, which
 
@@ -111,6 +111,19 @@ def _pwn_rop(path: str) -> None:
     print(out or '(no matching gadgets found)')
 
 
+def _network_scan(host: str, ports: str | None, timeout: float) -> None:
+    ips = resolve(host)
+    if not ips:
+        raise SystemExit('Could not resolve target.')
+    plist = [int(x.strip()) for x in ports.split(',')] if ports else None
+    rows = scan(ips[0], plist, timeout)
+    if not rows:
+        print('No tested TCP ports were open.')
+        return
+    for port, service in rows:
+        print(f'{port}/tcp OPEN {service}')
+
+
 def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(
         prog='ctf',
@@ -163,6 +176,16 @@ def build_parser() -> argparse.ArgumentParser:
     z.add_argument('path'); z.set_defaults(fn=lambda a: _pwn_checksec(a.path))
     z = pwn.add_parser('rop', help='Preview useful ROP gadgets')
     z.add_argument('path'); z.set_defaults(fn=lambda a: _pwn_rop(a.path))
+
+    q = sub.add_parser('network', help='Network and recon helpers')
+    network = q.add_subparsers(dest='action', required=True)
+    z = network.add_parser('resolve', help='Resolve a host/domain to IP addresses')
+    z.add_argument('host'); z.set_defaults(fn=lambda a: _print_lines(resolve(a.host)))
+    z = network.add_parser('scan', help='Check common or supplied TCP ports')
+    z.add_argument('host'); z.add_argument('--ports'); z.add_argument('--timeout', type=float, default=.4)
+    z.set_defaults(fn=lambda a: _network_scan(a.host, a.ports, a.timeout))
+    z = network.add_parser('services', help='Nmap service/version detection')
+    z.add_argument('host'); z.set_defaults(fn=lambda a: print(nmap(a.host) or 'nmap not installed or no output.'))
 
     q = sub.add_parser('tools', help='Audit useful Kali/CTF tools installed on this machine')
     q.set_defaults(fn=lambda a: print(summarize_tools()))
