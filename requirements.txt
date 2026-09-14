@@ -1,0 +1,7 @@
+pwntools
+requests
+beautifulsoup4
+pycryptodome
+z3-solver
+python-magic
+pyzipper

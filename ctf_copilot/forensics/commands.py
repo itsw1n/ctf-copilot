@@ -13,15 +13,21 @@ def register(sub):
     sp=q.add_subparsers(dest='action',required=True)
     defs=[
       ('triage','Unknown file? Run type/metadata/strings/embedded-data checks first.','Automatic first-pass file triage',lambda a: print(triage(a.path))),
-      ('metadata','Use when EXIF/comments/GPS/software fields may contain clues.','Show ExifTool metadata',lambda a: metadata(a.path)),
-      ('archive','Use before extraction to inspect entries, encryption, and nesting clues.','Inspect ZIP/archive clues',lambda a: print(archive(a.path, getattr(a,'password',[])))),
-      ('recurse','Use on nested ZIP challenges; safely follows nested readable data/flags.','Safely inspect nested ZIP layers',lambda a: print(recurse(a.path))),
+      ('metadata','Use when EXIF/comments/GPS/software fields may contain clues.','Show metadata and document clues',lambda a: print(metadata(a.path))),
+      ('archive','Use before extraction to inspect entries, encryption, and nesting clues.','Inspect archive clues',lambda a: print(archive(a.path, a.password, a.crack, a.extract))),
+      ('recurse','Use on nested archive challenges; safely follows readable data/flags.','Safely inspect nested archive layers',lambda a: print(recurse(a.path))),
       ('pcap','Use for .pcap/.pcapng challenges to summarize protocols/DNS/HTTP.','Summarize PCAP with tshark',lambda a: print(pcap(a.path))),
-      ('stego','Use when an image/audio file may hide data beyond visible content.','Run type-appropriate stego checks',lambda a: print(stego(a.path))),
+      ('stego','Use when an image/audio file may hide data beyond visible content.','Run type-appropriate stego checks',lambda a: print(stego(a.path, a.all, a.extract))),
     ]
     for name,desc,help_,fn in defs:
         z=sp.add_parser(name,help=help_,description=desc); z.add_argument('path');
-        if name=='archive': z.add_argument('--password',action='append',default=[],help='Password candidate from challenge clues; tried in memory only')
+        if name=='archive':
+            z.add_argument('--password',action='append',default=[],help='Password candidate from challenge clues')
+            z.add_argument('--crack',action='store_true',help='Show controlled cracking handoff')
+            z.add_argument('--extract',help='Extract safely into this directory after a successful password')
+        if name=='stego':
+            z.add_argument('--all',action='store_true',help='Run all applicable checks')
+            z.add_argument('--extract',help='Extract binwalk artifacts into this directory')
         z.set_defaults(fn=fn)
     z=sp.add_parser('strings',help='Extract printable strings',description='Use when a binary/file may contain readable passwords, URLs, flags, or clues.'); z.add_argument('path'); z.set_defaults(fn=lambda a:_strings(a.path))
     z=sp.add_parser('hex',help='Show first bytes as hex',description='Use to inspect file signatures/magic bytes manually.'); z.add_argument('path'); z.add_argument('--bytes',type=int,default=256); z.set_defaults(fn=lambda a: print(Path(a.path).read_bytes()[:max(1,min(a.bytes,4096))].hex(' ')))

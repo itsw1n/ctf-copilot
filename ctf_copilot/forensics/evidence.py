@@ -1,6 +1,7 @@
 from __future__ import annotations
 from pathlib import Path
 from ..shared.files import magic, printable_strings
+from ..shared.flags import find_flags_bytes
 from ..shared.tooling import which
 
 def inspect(path: str) -> str:
@@ -14,8 +15,11 @@ def inspect(path: str) -> str:
         offset=data.find(sig)
         if offset>0: out += [f'Embedded {name} signature at byte {offset}; use binwalk or archive recursion.']
     text='\n'.join(printable_strings(data))
+    flags=find_flags_bytes(data)
+    if flags: out += ['', 'Possible flags:']+[f'  {flag}' for flag in flags]
     if 'base64' in text.lower() or any(len(x)>32 and set(x)<=set('ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=') for x in text.splitlines()): out += ['Finding: Base64-looking text found in readable content.', 'Next suggested command: `ctf crypto analyze "<copied text>"`.']
     if detected in ('PNG image','JPEG image'):
         tool='zbarimg' if which('zbarimg') else 'exiftool'
         out += [f'Image clue path: inspect metadata and QR/barcodes. Available helper: {tool}.']
+    out += ['', 'Next: `ctf forensics triage <file>` for tool-backed inspection.']
     return '\n'.join(out)

@@ -1,26 +1,24 @@
 from __future__ import annotations
-import zipfile
 from pathlib import Path
-def inspect(path: str, passwords: list[str] | None = None) -> str:
+from ..shared.archives import list_entries,detect_crypto,test_password,extract
+def inspect(path: str, passwords: list[str] | None = None, crack: bool=False, extract_to: str|None=None) -> str:
     p=Path(path)
     if not p.is_file(): return f'Not a file: {p}'
     lines=['ARCHIVE INSPECTION','==================']
-    if zipfile.is_zipfile(p):
-        with zipfile.ZipFile(p) as z:
-            infos=z.infolist(); lines += [f'Entries: {len(infos)}',f'Encrypted entries: {sum(bool(i.flag_bits & 1) for i in infos)}','']
-            for i in infos[:200]: lines.append(f'{i.filename}  size={i.file_size} encrypted={bool(i.flag_bits & 1)}')
-            encrypted=[i for i in infos if i.flag_bits & 1]
-            if encrypted:
-                candidates=[x for x in (passwords or []) if x][:20]
-                if candidates:
-                    lines += ['', 'Password attempts (in-memory, first encrypted entry only):']
-                    entry=encrypted[0]
-                    for password in candidates:
-                        try:
-                            z.read(entry,pwd=password.encode())
-                            lines.append(f'  SUCCESS: {password!r} opens {entry.filename}')
-                            break
-                        except (RuntimeError,zipfile.BadZipFile): lines.append(f'  no: {password!r}')
-                else: lines += ['', 'Archive is encrypted. Supply clue words with `ctf forensics archive <file> --password <word>`.']
-    else: lines.append('Not a ZIP archive. Use 7z/binwalk manually for other archive types.')
+    entries=list_entries(str(p))
+    if not entries: return '\n'.join(lines+['Could not list archive entries (install 7z or check file).'])
+    crypto=detect_crypto(str(p)); lines += [f'Entries: {len(entries)}',f'Encryption: {crypto}','']
+    lines += [f"{x['name']}  size={x['size']} encrypted={x['encrypted']} method={x['method']}" for x in entries[:200]]
+    password=None
+    if crypto!='none':
+        candidates=list(dict.fromkeys([*(passwords or []),p.stem,'password','infected','secret','1234','admin','root','flag','challenge','ctf','test']))[:20]
+        lines += ['', 'Password attempts:']
+        for candidate in candidates:
+            if test_password(str(p),candidate): password=candidate; lines.append(f'  SUCCESS: {candidate!r}'); break
+            lines.append(f'  no: {candidate!r}')
+        if not password: lines.append('  No candidate worked. Use --crack only if you intend a wordlist attack.')
+    if crack and not password: lines.append('Cracking is not automated yet; use fcrackzip/John manually with a controlled wordlist.')
+    if extract_to:
+        ok,msg=extract(str(p),extract_to,password); lines += ['',f'Extract: {"ok" if ok else "failed"}: {msg[:300]}']
+    lines += ['', 'Next: `ctf forensics recurse <archive>` for nested layers.']
     return '\n'.join(lines)

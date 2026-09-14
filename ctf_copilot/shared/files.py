@@ -26,12 +26,18 @@ def sha256(path: str | Path) -> str:
 
 def magic(head: bytes) -> str:
     signatures = [
+        (b'\x1f\x8b', 'GZIP archive'),(b'BZh', 'BZIP2 archive'),(b'\xfd7zXZ\x00', 'XZ archive'),
+        (b'7z\xbc\xaf\x27\x1c', '7Z archive'),(b'Rar!\x1a\x07', 'RAR archive'),
         (b'\xff\xd8\xff', 'JPEG image'),
         (b'\x89PNG\r\n\x1a\n', 'PNG image'),
+        (b'GIF87a', 'GIF image'),(b'GIF89a', 'GIF image'),(b'BM', 'BMP image'),(b'II*\x00', 'TIFF image'),(b'MM\x00*', 'TIFF image'),
         (b'%PDF-', 'PDF document'),
         (b'PK\x03\x04', 'ZIP archive'),
+        (b'OggS', 'OGG media'),(b'fLaC', 'FLAC audio'),(b'RIFF', 'RIFF/WAV media'),(b'ID3', 'MP3 audio'),
         (b'\x7fELF', 'ELF executable'),
         (b'MZ', 'PE/Windows executable'),
+        (b'SQLite format 3\x00', 'SQLite database'),(b'\xd4\xc3\xb2\xa1', 'PCAP capture'),(b'\x0a\x0d\x0d\x0a', 'PCAPNG capture'),
+        (b'\xd0\xcf\x11\xe0\xa1\xb1\x1a\xe1', 'OLE/CFB document'),(b'{\\rtf', 'RTF document'),
     ]
     for signature, name in signatures:
         if head.startswith(signature):

@@ -15,3 +15,16 @@ def find_flags(text: str) -> list[str]:
             if match not in out:
                 out.append(match)
     return out
+
+def find_flags_bytes(data: bytes, max_xor_bytes: int = 65_536) -> list[str]:
+    """Find flags in ordinary/wide text and small single-byte-XOR blobs."""
+    out=[]
+    for encoding in ('utf-8','utf-16le','utf-16be'):
+        try: out.extend(find_flags(data.decode(encoding,'ignore')))
+        except UnicodeError: pass
+    if len(data)<=max_xor_bytes:
+        for key in range(256):
+            text=bytes(value^key for value in data).decode('latin1')
+            found=find_flags(text)
+            if found: out.extend(found)
+    return list(dict.fromkeys(out))

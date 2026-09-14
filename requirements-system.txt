@@ -1,0 +1,24 @@
+# Kali packages used by CTF Copilot's forensic playbooks
+file
+binutils
+xxd
+exiftool
+binwalk
+foremost
+scalpel
+p7zip-full
+unrar-free
+zsteg
+steghide
+pngcheck
+zbar-tools
+sox
+tshark
+tcpflow
+volatility3
+sleuthkit
+poppler-utils
+oletools
+john
+fcrackzip
+hashcat
