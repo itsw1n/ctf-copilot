@@ -9,6 +9,8 @@ class Candidate:
     confidence: float
     reason: str
     parameter: str | None = None
+    structural_confidence: float = 0.0
+    speculative: bool = False
 
 @dataclass(frozen=True)
 class PathResult:

@@ -1,5 +1,5 @@
 from __future__ import annotations
-import argparse, hashlib, json, re
+import json, re
 from .analyzer import render
 from .encodings.base import decode as decode_encoding
 from .classical.caesar import all_shifts, atbash, rot13
@@ -23,19 +23,24 @@ def decode(kind,value,shift=None):
 
 def hash_ident(value: str) -> str:
     s=value.strip(); matches=[]
-    if re.fullmatch(r'[0-9a-fA-F]{32}',s): matches.append('MD5 or NTLM (context needed)')
-    if re.fullmatch(r'[0-9a-fA-F]{40}',s): matches.append('SHA-1')
-    if re.fullmatch(r'[0-9a-fA-F]{64}',s): matches.append('SHA-256')
-    if re.fullmatch(r'[0-9a-fA-F]{128}',s): matches.append('SHA-512')
-    if s.startswith('$2'): matches.append('bcrypt')
-    if s.startswith('$argon2'): matches.append('Argon2')
-    return '\n'.join(['Likely hash type(s):']+[f'  - {m}' for m in matches]+['Hashes are one-way; identify/crack them rather than "decode" them.']) if matches else 'No common hash format recognized.'
+    if re.fullmatch(r'[0-9a-fA-F]{32}',s): matches.append(('MD5 or NTLM','32 hexadecimal characters; context is required to distinguish them'))
+    if re.fullmatch(r'[0-9a-fA-F]{40}',s): matches.append(('SHA-1','40 hexadecimal characters'))
+    if re.fullmatch(r'[0-9a-fA-F]{64}',s): matches.append(('SHA-256','64 hexadecimal characters'))
+    if re.fullmatch(r'[0-9a-fA-F]{128}',s): matches.append(('SHA-512','128 hexadecimal characters'))
+    if s.startswith(('$2a$','$2b$','$2y$')): matches.append(('bcrypt','bcrypt modular crypt prefix'))
+    if s.startswith('$argon2'): matches.append(('Argon2','Argon2 encoded-hash prefix'))
+    if not matches: return 'No common hash format recognized. Hash type cannot always be determined from digest text alone.'
+    out=['LIKELY HASH FAMILY','==================']
+    for name,why in matches: out += [f'- {name}',f'  reason: {why}']
+    out += ['','Purpose: identify the likely family so you can choose the correct auditing/cracking mode if the CTF requires recovering a guessable plaintext.','Hashes are one-way; they are tested against guesses, not directly decoded.']
+    return '\n'.join(out)
 
 def register(sub):
-    q=sub.add_parser('crypto',help='Cryptography and encoding helpers'); sp=q.add_subparsers(dest='action',required=True)
-    z=sp.add_parser('analyze',help='Rank likely encodings/ciphers and follow plausible layers'); z.add_argument('value'); z.set_defaults(fn=lambda a: print(render(a.value)))
-    z=sp.add_parser('decode',help='Decode a specific supported format'); z.add_argument('value'); z.add_argument('--kind',default='auto',choices=['auto','base64','base32','base16','base85','ascii85','hex','ascii','binary','url','html','rot13','atbash','caesar','morse','jwt']); z.add_argument('--shift',type=int); z.set_defaults(fn=lambda a: print(decode(a.kind,a.value,a.shift)))
-    z=sp.add_parser('caesar',help='Rank all Caesar shifts'); z.add_argument('value'); z.set_defaults(fn=lambda a: [print(f'{n:2} score={quality(t):.2f}  {t}') for n,t in sorted(all_shifts(a.value),key=lambda x:quality(x[1]),reverse=True)[:10]])
-    z=sp.add_parser('xor',help='Try single-byte XOR candidates from hex'); z.add_argument('value'); z.set_defaults(fn=lambda a: [print(f'key=0x{k:02x} score={s:.2f} text={t[:160]}') for s,k,t in xor_candidates(a.value)])
-    z=sp.add_parser('jwt',help='Decode JWT header/payload (does not verify signature)'); z.add_argument('token'); z.set_defaults(fn=lambda a: print(json.dumps(decode_jwt(a.token),indent=2)))
-    z=sp.add_parser('hash',help='Identify common hash formats'); z.add_argument('value'); z.set_defaults(fn=lambda a: print(hash_ident(a.value)))
+    q=sub.add_parser('crypto',help='Decode/identify encoded text, simple ciphers and hashes',description='Use for challenge text that looks encoded, shifted, XORed, tokenized, or hashed.')
+    sp=q.add_subparsers(dest='action',required=True)
+    z=sp.add_parser('analyze',help='Evidence-driven automatic detection and layered decoding',description='Best first crypto command. Detect strong structures first, explore several plausible decode chains, and rank meaningful outputs.'); z.add_argument('value'); z.set_defaults(fn=lambda a: print(render(a.value)))
+    z=sp.add_parser('decode',help='Directly decode a known format/cipher',description='Use when you already know the type instead of asking the analyzer to guess.'); z.add_argument('value'); z.add_argument('--kind',default='auto',choices=['auto','base64','base32','base16','base85','ascii85','hex','ascii','binary','url','html','rot13','atbash','caesar','morse','jwt']); z.add_argument('--shift',type=int); z.set_defaults(fn=lambda a: print(decode(a.kind,a.value,a.shift)))
+    z=sp.add_parser('caesar',help='Rank Caesar letter shifts',description='Use when alphabetic ciphertext may simply have each letter shifted by a fixed amount.'); z.add_argument('value'); z.set_defaults(fn=lambda a: [print(f'{n:2} score={quality(t):.2f}  {t}') for n,t in sorted(all_shifts(a.value),key=lambda x:quality(x[1]),reverse=True)[:10]])
+    z=sp.add_parser('xor',help='Try single-byte XOR candidates from hex',description='Use when ciphertext is hex and the challenge hints at XOR or a single-byte key.'); z.add_argument('value'); z.set_defaults(fn=lambda a: [print(f'key=0x{k:02x} score={s:.2f} text={t[:160]}') for s,k,t in xor_candidates(a.value)])
+    z=sp.add_parser('jwt',help='Decode JWT header/payload',description='Use on token strings with three dot-separated sections. Decoding does not verify the signature.'); z.add_argument('token'); z.set_defaults(fn=lambda a: print(json.dumps(decode_jwt(a.token),indent=2)))
+    z=sp.add_parser('hash',help='Identify likely hash family',description='Use when you find a digest and need to know whether it resembles MD5/SHA/bcrypt/Argon2 before choosing a next tool.'); z.add_argument('value'); z.set_defaults(fn=lambda a: print(hash_ident(a.value)))
