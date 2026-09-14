@@ -1,6 +1,6 @@
 COMMANDS = r"""
 ==============================
-CTF COPILOT v0.5 COMMANDS
+CTF COPILOT v0.6 COMMANDS
 ==============================
 
 START HERE
