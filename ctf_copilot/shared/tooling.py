@@ -28,8 +28,9 @@ def summarize_tools():
         out += [f'{n:<12} {"OK" if which(n) else "MISSING"}' for n in names]; out.append('')
     return '\n'.join(out).rstrip()
 
-def doctor():
-    missing=[n for names in GROUPS.values() for n in names if not which(n)]
+def doctor(category=None):
+    selected = {category.upper(): GROUPS.get(category.upper(), [])} if category and category.upper() in GROUPS else GROUPS
+    missing=[n for names in selected.values() for n in names if not which(n)]
     missing=list(dict.fromkeys(missing))
     lines=['CTF COPILOT TOOL DOCTOR','=======================',f'Missing helpers: {len(missing)}']+[f'  - {x}' for x in missing]
     lines += ['','Install only what you need. On Kali, search packages with:','  apt search <tool>','','Some names (for example zsteg/ROPgadget) may be installed via language-specific package managers depending on your Kali setup.']

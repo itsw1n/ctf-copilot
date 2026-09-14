@@ -1,5 +1,6 @@
 from __future__ import annotations
 import argparse
+import json
 from .solve import solve
 from .shared.tooling import summarize_tools, doctor
 from .commands_text import COMMANDS
@@ -13,6 +14,7 @@ from .osint import commands as osint
 from .misc import commands as misc
 from .workspace import commands as workspace
 from .flags import commands as flags
+from .workspace.manager import load_report
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -24,11 +26,19 @@ def build_parser() -> argparse.ArgumentParser:
     sub=parser.add_subparsers(dest='cmd',required=True)
     q=sub.add_parser('solve',help='Unknown challenge? Start here',description='Classify an unknown file, URL, directory, binary, or encoded text and run a safe first pass.')
     q.add_argument('target',help='File, URL, directory, or text')
-    q.set_defaults(fn=lambda a: print(solve(a.target)))
+    q.add_argument('--description',default='',help='Challenge prompt or hint text')
+    q.add_argument('--description-file',help='Read challenge prompt from a file')
+    q.add_argument('--flag-pattern',help='Additional regular expression for the event flag format')
+    q.add_argument('--workspace',help='Save a structured report under this workspace')
+    q.set_defaults(fn=lambda a: print(solve(a.target, open(a.description_file,encoding='utf-8').read() if a.description_file else a.description, a.flag_pattern, a.workspace)))
     for mod in (web,crypto,forensics,reverse,pwn,network,osint,misc,workspace,flags): mod.register(sub)
     q=sub.add_parser('tools',help='Audit useful Kali/CTF tools',description='Check which external helpers CTF Copilot can orchestrate.')
     q.add_argument('--doctor',action='store_true',help='Show missing tools and install/search hints')
-    q.set_defaults(fn=lambda a: print(doctor() if a.doctor else summarize_tools()))
+    q.add_argument('--category',choices=['web','crypto','forensics','reverse','pwn','network'],help='Limit doctor output to one category')
+    q.set_defaults(fn=lambda a: print(doctor(a.category) if a.doctor else summarize_tools()))
+    q=sub.add_parser('report',help='Show a saved structured workspace report')
+    q.add_argument('workspace')
+    q.set_defaults(fn=lambda a: print(json.dumps(load_report(a.workspace), indent=2) if load_report(a.workspace) else 'No solve report found. Run ctf solve ... --workspace <name>.'))
     q=sub.add_parser('commands',help='Show beginner-friendly command guide',description='Print what each command is for and when to use it.')
     q.set_defaults(fn=lambda a: print(COMMANDS))
     return parser
