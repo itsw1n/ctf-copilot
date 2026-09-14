@@ -1,5 +1,6 @@
 from pathlib import Path
-def base(): return Path.home()/'.ctf-copilot'/'workspaces'
+import os
+def base(): return Path(os.environ.get('CTF_COPILOT_HOME', str(Path.home()/'.ctf-copilot')))/'workspaces'
 def new(name):
     root=base()/name
     for part in ('files','extracted','scripts','output','evidence'): (root/part).mkdir(parents=True,exist_ok=True)
@@ -15,3 +16,12 @@ def info(name):
     root=base()/name
     if not root.exists(): return f'Workspace not found: {name}'
     return '\n'.join([f'Workspace: {root}',f'Notes: {root/"notes.md"}',f'Files: {sum(1 for x in root.rglob("*") if x.is_file())}'])
+
+def save_report(name, report):
+    root = new(name)
+    return report.save(root / 'evidence' / 'solve-report.json')
+
+def load_report(name):
+    import json
+    p = base()/name/'evidence'/'solve-report.json'
+    return json.loads(p.read_text(encoding='utf-8')) if p.exists() else None
