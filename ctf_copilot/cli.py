@@ -3,7 +3,8 @@ import argparse
 import json
 from .solve import solve
 from .shared.tooling import summarize_tools, doctor
-from .commands_text import COMMANDS
+from .commands_text import render_commands
+from .shared.style import supports_color
 from .crypto import commands as crypto
 from .web import commands as web
 from .forensics import commands as forensics
@@ -23,6 +24,7 @@ def build_parser() -> argparse.ArgumentParser:
         description='CTF Copilot v0.8 - evidence-driven first-pass CTF assistant',
         epilog='Tip: use `ctf commands` for a beginner-friendly command guide.'
     )
+    parser.add_argument('--no-color', action='store_true', help='Disable ANSI colors')
     sub=parser.add_subparsers(dest='cmd',required=True)
     q=sub.add_parser('solve',help='Unknown challenge? Start here',description='Classify an unknown file, URL, directory, binary, or encoded text and run a safe first pass.')
     q.add_argument('target',help='File, URL, directory, or text')
@@ -40,7 +42,7 @@ def build_parser() -> argparse.ArgumentParser:
     q.add_argument('workspace')
     q.set_defaults(fn=lambda a: print(json.dumps(load_report(a.workspace), indent=2) if load_report(a.workspace) else 'No solve report found. Run ctf solve ... --workspace <name>.'))
     q=sub.add_parser('commands',help='Show beginner-friendly command guide',description='Print what each command is for and when to use it.')
-    q.set_defaults(fn=lambda a: print(COMMANDS))
+    q.set_defaults(fn=lambda a: print(render_commands(use_color=supports_color(getattr(a, 'no_color', False)))))
     return parser
 
 def main():
