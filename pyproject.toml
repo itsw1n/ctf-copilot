@@ -4,8 +4,8 @@ build-backend="setuptools.build_meta"
 
 [project]
 name="ctf-copilot"
-version="0.5.0"
-description="Beginner-friendly CTF workflow copilot with clear category-based commands"
+version="0.7.0"
+description="Modular beginner-friendly CTF first-pass assistant for Kali"
 readme="README.md"
 requires-python=">=3.10"
 dependencies=[]
