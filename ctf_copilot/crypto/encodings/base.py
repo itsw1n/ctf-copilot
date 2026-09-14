@@ -52,7 +52,9 @@ def looks(kind: str, raw: str) -> bool:
         c=compact.upper(); return len(c)>=8 and bool(re.fullmatch(r'[A-Z2-7=]+',c)) and any(x in c for x in '234567=')
     if kind=='ascii': return bool(re.fullmatch(r'(?:\d{1,3}[\s,]+)+\d{1,3}',raw.strip()))
     if kind=='binary': return len(compact)>=16 and len(compact)%8==0 and bool(re.fullmatch(r'[01]+',compact))
-    if kind=='url': return '%' in raw or bool(re.search(r'\+[A-Za-z0-9]',raw))
+    # A plus alone is common in Base64 ciphertext.  Treat URL decoding as a
+    # structural candidate only for percent escapes or an actual query string.
+    if kind=='url': return bool(re.search(r'%[0-9A-Fa-f]{2}',raw) or re.search(r'(?:^|[?&])[A-Za-z][A-Za-z0-9_-]*=',raw))
     if kind=='html': return bool(re.search(r'&(?:#\d+|#x[0-9a-fA-F]+|[A-Za-z]+);',raw))
     if kind=='ascii85': return raw.strip().startswith('<~') and raw.strip().endswith('~>')
     if kind=='base85': return len(raw)>=5 and bool(re.fullmatch(r'[\x21-\x75\s]+',raw))

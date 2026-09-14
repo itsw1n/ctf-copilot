@@ -6,6 +6,7 @@ from .headers import audit
 from .js import inspect as js_inspect, params_from_page
 from .playbook import map_target
 from .source import inspect as source_inspect
+from .cbc import bitflip as cbc_bitflip
 from .probes.methods import probe as methods_probe
 from .probes.xss import probe as xss_probe
 from .probes.sqli import probe as sqli_probe
@@ -21,6 +22,7 @@ def register(sub):
     z=sp.add_parser('params',help='List interesting parameter names',description='Use before Burp/manual testing to see what inputs and query parameters the app exposes.'); z.add_argument('url'); z.set_defaults(fn=lambda a: [print(x) for x in params_from_page(a.url)] or print('No parameter names found.'))
     z=sp.add_parser('map',help='Bounded passive same-origin crawler',description='Maps public links, scripts and endpoint clues without fuzzing or active probes.'); z.add_argument('url'); z.add_argument('--max-pages',type=int,default=12); z.set_defaults(fn=lambda a: print(map_target(a.url,max(1,min(a.max_pages,50)))))
     z=sp.add_parser('source',help='Statically inspect supplied web source',description='Find routes, risky sinks, secrets and authorization clues without executing source code.'); z.add_argument('path'); z.set_defaults(fn=lambda a: print(source_inspect(a.path)))
+    z=sp.add_parser('cbc-bitflip',help='Try bounded CBC cookie bit flips on an authorized CTF',description='For double-Base64 CBC cookie challenges such as picoCTF More Cookies. Sends modified cookies only after confirmation.'); z.add_argument('url'); z.add_argument('cookie'); z.add_argument('--cookie-name',default='auth_name'); z.add_argument('--max-attempts',type=int,default=256); z.add_argument('--confirm-authorized',action='store_true'); z.set_defaults(fn=_cbc)
     z=sp.add_parser('jwt',help='Decode JWT header/payload',description='Decode a JWT for inspection. This does not verify or bypass its signature.'); z.add_argument('token'); z.set_defaults(fn=lambda a: print(json.dumps(decode_jwt(a.token),indent=2)))
     z=sp.add_parser('compare',help='Compare status/body size for two URLs',description='Use to compare two controlled requests and spot response differences.'); z.add_argument('url1'); z.add_argument('url2'); z.set_defaults(fn=lambda a: _compare(a.url1,a.url2))
     z=sp.add_parser('test',help='Controlled active indicators; authorization required',description='Run low-impact header/method/reflection/SQL-error indicators only on CTF, owned, or explicitly authorized targets.'); z.add_argument('url'); z.add_argument('--confirm-authorized',action='store_true'); z.add_argument('--headers',action='store_true'); z.add_argument('--methods',action='store_true'); z.add_argument('--xss',action='store_true'); z.add_argument('--sqli',action='store_true'); z.set_defaults(fn=_test)
@@ -41,3 +43,8 @@ def _test(a):
     print('AUTHORIZED WEB TEST\n===================\nTarget: '+a.url)
     for title,rows in selected: print('\n['+title+']'); [print('  '+r) for r in rows]
     print('\nIndicators are not proof; confirm manually before concluding a vulnerability exists.')
+
+def _cbc(a):
+    if not a.confirm_authorized:
+        raise SystemExit('Refusing CBC bit-flip requests without --confirm-authorized. Use only on your authorized CTF instance.')
+    print(cbc_bitflip(a.url,a.cookie,a.cookie_name,max(1,min(a.max_attempts,2048))))

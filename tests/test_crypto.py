@@ -18,4 +18,10 @@ class CryptoTests(unittest.TestCase):
     def test_hex_manual(self):
         self.assertEqual(decode('hex','48656c6c6f'),'Hello')
 
+    def test_base64_ciphertext_plus_is_not_url_decoded(self):
+        value='TTgwdUplNXhvMUxXS2hWdmhwZkNYeTZrTTFkNll1SjdhbTBhUXVyd2krdFFkdkg0'
+        rows=analyze(value)
+        self.assertEqual([x.kind for x in rows[0].chain],['base64'])
+        self.assertIn('+',rows[0].output)
+
 if __name__=='__main__': unittest.main()

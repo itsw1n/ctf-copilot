@@ -11,6 +11,7 @@ class CliTests(unittest.TestCase):
             ['pwn','cyclic','create','20'],
             ['network','dns','example.com'],
             ['flags','scan','flag{test}'],
+            ['web','cbc-bitflip','http://challenge.local','AAAA','--confirm-authorized'],
         ]:
             ns=parser.parse_args(argv)
             self.assertTrue(callable(ns.fn))
