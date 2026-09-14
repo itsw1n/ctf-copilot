@@ -1,22 +1,12 @@
 # Changelog
 
-## v0.5.0
-
-- Refactored the CLI around one clear category per command group.
-- Removed confusing top-level duplicates: `analyze`, `decode`, `file`, `net`, and `recon`.
-- Kept `ctf solve <target>` as the universal first-pass command.
-- Moved decoding entirely under `ctf crypto`.
-- Standardized network commands under `ctf network`.
-- Simplified reverse engineering to `triage`, `strings`, and `disasm`.
-- Simplified pwn to `triage`, `checksec`, and `rop`.
-- Simplified forensics to `triage`, `metadata`, `strings`, and `hex`.
-- Added a small passive `ctf osint` group for domain and username leads.
-- Improved workspace creation to include `files/`, `extracted/`, `scripts/`, `output/`, and `notes.md`.
-- Updated help text, README, and user agents to v0.5.
-
-## v0.4.0
-
-- Added `ctf solve` automatic first-pass triage.
-- Added external-tool audit and orchestration helpers.
-- Added controlled authorized web probes.
-- Added forensics and binary triage helpers.
+## 0.7.0
+- Reorganized every major CTF category into its own package.
+- Kept `cli.py` as command wiring and `solve.py` as cross-category orchestration.
+- Upgraded crypto auto-analysis with ranked candidates, Caesar scoring, recursion/backtracking, Base32/Base85/HTML/Morse/JWT support, hash identification, and XOR helpers.
+- Added forensic archive, PCAP, and stego triage commands.
+- Added reverse symbols/function disassembly helpers.
+- Added pwn cyclic pattern helpers.
+- Added network DNS and TCP banner helpers.
+- Added recursive flag scanning with custom prefixes.
+- Added workspace info/evidence directory and tool doctor.
