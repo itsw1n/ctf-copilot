@@ -7,6 +7,10 @@ from .classical.morse import decode as decode_morse
 from .formats.jwt import decode as decode_jwt
 from .xor.single_byte import candidates as xor_candidates
 from .scoring import quality
+from .inspect import inspect_text, inspect_python
+from .rsa import solve as rsa_solve
+from .repeating_xor import crack as repeating_xor
+from .template import generate as generate_template
 
 def decode(kind,value,shift=None):
     if kind=='auto': return render(value)
@@ -42,5 +46,9 @@ def register(sub):
     z=sp.add_parser('decode',help='Directly decode a known format/cipher',description='Use when you already know the type instead of asking the analyzer to guess.'); z.add_argument('value'); z.add_argument('--kind',default='auto',choices=['auto','base64','base32','base16','base85','ascii85','hex','ascii','binary','url','html','rot13','atbash','caesar','morse','jwt']); z.add_argument('--shift',type=int); z.set_defaults(fn=lambda a: print(decode(a.kind,a.value,a.shift)))
     z=sp.add_parser('caesar',help='Rank Caesar letter shifts',description='Use when alphabetic ciphertext may simply have each letter shifted by a fixed amount.'); z.add_argument('value'); z.set_defaults(fn=lambda a: [print(f'{n:2} score={quality(t):.2f}  {t}') for n,t in sorted(all_shifts(a.value),key=lambda x:quality(x[1]),reverse=True)[:10]])
     z=sp.add_parser('xor',help='Try single-byte XOR candidates from hex',description='Use when ciphertext is hex and the challenge hints at XOR or a single-byte key.'); z.add_argument('value'); z.set_defaults(fn=lambda a: [print(f'key=0x{k:02x} score={s:.2f} text={t[:160]}') for s,k,t in xor_candidates(a.value)])
+    z=sp.add_parser('xor-repeat',help='Try short repeating-key XOR candidates from hex',description='Uses normalized Hamming distance and per-column frequency scoring; verify results manually.'); z.add_argument('value'); z.set_defaults(fn=lambda a: [print(f'key={k!r} score={s:.2f} text={t[:240]}') for s,k,t in repeating_xor(a.value)] or print('No usable hex ciphertext or candidate found.'))
     z=sp.add_parser('jwt',help='Decode JWT header/payload',description='Use on token strings with three dot-separated sections. Decoding does not verify the signature.'); z.add_argument('token'); z.set_defaults(fn=lambda a: print(json.dumps(decode_jwt(a.token),indent=2)))
     z=sp.add_parser('hash',help='Identify likely hash family',description='Use when you find a digest and need to know whether it resembles MD5/SHA/bcrypt/Argon2 before choosing a next tool.'); z.add_argument('value'); z.set_defaults(fn=lambda a: print(hash_ident(a.value)))
+    z=sp.add_parser('inspect',help='Find RSA/XOR/hash clues in text or Python source',description='Safely inspects crypto context; Python source is parsed but never executed.'); z.add_argument('value'); z.set_defaults(fn=lambda a: print(inspect_python(a.value) if __import__('pathlib').Path(a.value).suffix=='.py' else inspect_text(a.value)))
+    z=sp.add_parser('rsa',help='Try safe small-exponent or small-factor RSA recovery',description='Accepts n/e/c assignments from a text file or pasted value; it never contacts an oracle.'); z.add_argument('value'); z.set_defaults(fn=lambda a: print(rsa_solve(__import__('pathlib').Path(a.value).read_text(errors='replace') if __import__('pathlib').Path(a.value).is_file() else a.value)))
+    z=sp.add_parser('template',help='Generate an editable solve.py scaffold from crypto source',description='Parses source without executing it and refuses to overwrite a script.'); z.add_argument('source'); z.add_argument('--output'); z.set_defaults(fn=lambda a: print(generate_template(a.source,a.output)))
