@@ -1,122 +1,115 @@
-# CTF Copilot v0.7
+# CTF Copilot v0.8
 
-A modular Kali CLI for **first-pass CTF analysis**. It does not replace specialist tools such as Wireshark, Ghidra, Burp Suite, nmap, sqlmap, or GDB; it organizes common workflows and surfaces useful leads quickly.
+CTF Copilot is a beginner-friendly CLI for **authorized CTF challenges and practice labs**. It organizes repeatable first-pass work by category while relying on proven Kali tools where appropriate.
 
-## Install
+The design goal is not “magically solve every CTF.” It is:
+
+> classify the challenge → run useful first checks → surface evidence → recommend the next action.
+
+## Install on Kali
 
 ```bash
-cd ctf-copilot
+cd ~/tools/ctf-copilot
 pipx install -e . --force
 ctf --help
 ```
 
-## Architecture
-
-```text
-ctf_copilot/
-├── cli.py
-├── solve.py
-├── crypto/
-│   ├── commands.py
-│   ├── analyzer.py
-│   ├── scoring.py
-│   ├── models.py
-│   ├── encodings/
-│   ├── classical/
-│   ├── xor/
-│   └── formats/
-├── web/
-│   ├── commands.py
-│   ├── analyzer.py
-│   ├── client.py
-│   ├── endpoints.py
-│   ├── headers.py
-│   ├── probes/
-│   └── tools/
-├── forensics/
-│   ├── commands.py
-│   ├── triage.py
-│   ├── metadata.py
-│   ├── archive.py
-│   ├── pcap.py
-│   └── stego.py
-├── reverse/
-├── pwn/
-├── network/
-├── osint/
-├── misc/
-├── workspace/
-├── flags/
-└── shared/
-```
-
-`commands.py` wires CLI arguments. The other files contain reusable logic. `solve.py` orchestrates categories instead of duplicating their implementations.
-
-## Useful commands
+## Learn the commands
 
 ```bash
-# Unknown challenge
-ctf solve challenge.zip
-ctf solve mystery.png
-ctf solve ./chall
-ctf solve 'SGVsbG8='
+ctf commands
+ctf crypto --help
+ctf forensics --help
+ctf web --help
+```
 
-# Crypto
-ctf crypto analyze "b'wpjvJAM{jhlzhy_k3jy9wa3k_h47j6k69}'"
-ctf crypto decode '48656c6c6f' --kind hex
-ctf crypto caesar 'khoor'
-ctf crypto xor '1d0c...'                 # hex input
-ctf crypto jwt 'eyJ...'
-ctf crypto hash '5f4dcc3b5aa765d61d8327deb882cf99'
+Every category/action includes a short description explaining **what it does and when to use it**.
 
-# Forensics
+## Main workflow
+
+```text
+ctf solve <target>       unknown challenge: start here
+ctf crypto ...           encoded/cipher/hash-looking text
+ctf forensics ...        images/files/archives/PCAP evidence
+ctf reverse ...          understand compiled programs
+ctf pwn ...              investigate binary exploitation paths
+ctf web ...              authorized web CTF reconnaissance/testing
+ctf network ...          discover exposed services
+ctf osint ...            passive public-information leads
+ctf flags ...            recursively search for flag-like strings
+ctf workspace ...        organize challenge notes/evidence
+ctf misc ...             small conversions
+```
+
+## High-value examples
+
+### Unknown encoded text
+
+```bash
+ctf crypto analyze '4d6a41784e444d3d'
+```
+
+The analyzer uses structural evidence + beam search. It should prefer a strong chain such as:
+
+```text
+hex -> base64 -> 20143
+```
+
+over speculative Caesar guesses.
+
+### Caesar challenge
+
+```bash
+ctf crypto analyze 'wpjvJAM{jhlzhy_k3jy9wa3k_h47j6k69}'
+```
+
+### Unknown file
+
+```bash
 ctf forensics triage mystery.png
-ctf forensics metadata mystery.jpg
-ctf forensics stego mystery.png
-ctf forensics archive challenge.zip
-ctf forensics pcap traffic.pcap
-ctf forensics strings mystery.bin
-ctf forensics hex mystery.bin --bytes 256
+```
 
-# Reverse / pwn
+### Nested ZIP challenge
+
+```bash
+ctf forensics recurse challenge.zip
+```
+
+This safe helper inspects nested ZIP/readable content as **data only** and never executes files.
+
+### Binary
+
+```bash
 ctf reverse triage ./chall
-ctf reverse strings ./chall
-ctf reverse symbols ./chall
-ctf reverse disasm ./chall --function main
-ctf pwn checksec ./chall
-ctf pwn rop ./chall
-ctf pwn cyclic create 200
-ctf pwn cyclic offset 0x61616162
+ctf reverse imports ./chall
+ctf reverse functions ./chall
+ctf pwn triage ./chall
+```
 
-# Web
-ctf web analyze https://authorized-target.example
-ctf web endpoints https://authorized-target.example
-ctf web headers https://authorized-target.example
-ctf web test 'https://authorized-target.example/search?q=test' --confirm-authorized --xss --sqli
+### Authorized web challenge
 
-# Network
-ctf network resolve challenge.example
-ctf network scan challenge.example
-ctf network services challenge.example
-ctf network dns challenge.example
-ctf network connect challenge.example 31337
+```bash
+ctf web analyze http://challenge.local
+ctf web endpoints http://challenge.local
+ctf web params http://challenge.local
+ctf web js http://challenge.local/app.js
+```
 
-# Flags / workspace / tools
-ctf flags scan ./challenge-folder
-ctf flags scan . --prefix ACDCTF
-ctf workspace new web-login
-ctf workspace note web-login 'Possible IDOR on /api/users/:id'
-ctf workspace info web-login
+Controlled active probes require explicit confirmation:
+
+```bash
+ctf web test 'http://challenge.local/search?q=test' --confirm-authorized --xss --sqli
+```
+
+## Tool audit
+
+```bash
 ctf tools
 ctf tools --doctor
 ```
 
-## Crypto automation
+CTF Copilot may orchestrate external tools such as `file`, `strings`, `exiftool`, `binwalk`, `tshark`, `checksec`, `readelf`, `objdump`, `ROPgadget`, and `nmap` when installed.
 
-`ctf crypto analyze` ranks multiple candidates and can follow plausible layers recursively. Current automatic coverage includes Base64, Base32, Base16/hex, Base85/ASCII85, decimal ASCII, binary, URL encoding, HTML entities, Morse, Caesar/ROT13, Atbash, JWT-like values, gzip reached through supported byte decoders, and readable candidate scoring.
+## Safety
 
-It intentionally does **not** claim to automatically crack arbitrary AES/RSA/Vigenere/substitution challenges. Those need keys, parameters, mathematics, statistical analysis, or challenge-specific context.
-
-## Web safety
-
-`ctf web analyze`, `headers`, and `endpoints` are inspection/recon helpers. `ctf web test` sends controlled active probes and requires `--confirm-authorized`. Use active testing only on CTF targets, systems you own, or systems you are explicitly authorized to test.
+Use active web/network testing only on CTF targets, systems you own, or systems you are explicitly authorized to test. Unknown binaries should stay inside your CTF VM.
