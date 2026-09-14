@@ -118,6 +118,24 @@ except ImportError:
 
 def _app_version() -> str:
     try:
+        from pathlib import Path
+        pyproject = Path(__file__).resolve().parent.parent / "pyproject.toml"
+        text = pyproject.read_text(encoding="utf-8", errors="replace")
+        try:
+            import tomllib
+            data = tomllib.loads(text)
+            v = data.get("project", {}).get("version", "")
+            if v:
+                return "v" + str(v)
+        except Exception:
+            pass
+        import re
+        m = re.search(r'(?m)^version\s*=\s*["\']([^"\']+)["\']', text)
+        if m:
+            return "v" + m.group(1).strip()
+    except Exception:
+        pass
+    try:
         if _pkg_version is None:
             return "v0.9"
         return "v" + _pkg_version("ctf-copilot")
