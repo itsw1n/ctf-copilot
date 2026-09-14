@@ -1,10 +1,13 @@
-# CTF Copilot v0.8
+# CTF Copilot v0.9
 
 CTF Copilot is a beginner-friendly CLI for **authorized CTF challenges and practice labs**. It organizes repeatable first-pass work by category while relying on proven Kali tools where appropriate.
 
 The design goal is not “magically solve every CTF.” It is:
 
 > classify the challenge → run useful first checks → surface evidence → recommend the next action.
+
+It is designed to automate common **easy and medium** CTF first-pass work, not
+to guarantee a solve for every custom or advanced challenge.
 
 ## Install on Kali
 
@@ -39,6 +42,44 @@ ctf osint ...            passive public-information leads
 ctf flags ...            recursively search for flag-like strings
 ctf workspace ...        organize challenge notes/evidence
 ctf misc ...             small conversions
+```
+
+For most challenges, you only need one command:
+
+```bash
+ctf solve <target>
+```
+
+`<target>` may be a file, ZIP, PCAP, directory, URL, or encoded text. The
+challenge description is optional, but useful when it contains a password or
+important hint:
+
+```bash
+ctf solve challenge.zip --description 'password: school2026' --workspace zip-01
+ctf report zip-01
+```
+
+The report explains the tool used, what it found, why it matters, and the next
+suggested command.
+
+## New v0.9 follow-up commands
+
+Use these only when `ctf solve` or the challenge evidence points you there:
+
+```bash
+# Web: passive same-origin crawl or supplied source code
+ctf web map http://challenge.local
+ctf web source extracted-web-source/
+
+# Crypto: clues, weak RSA, repeating-key XOR, safe solve-script scaffold
+ctf crypto inspect encrypt.py
+ctf crypto rsa rsa-values.txt
+ctf crypto xor-repeat <hex-ciphertext>
+ctf crypto template encrypt.py
+
+# Forensics: evidence correlation and encrypted ZIP clue passwords
+ctf forensics evidence mystery.pdf
+ctf forensics archive challenge.zip --password school2026
 ```
 
 ## High-value examples
@@ -106,6 +147,7 @@ ctf web test 'http://challenge.local/search?q=test' --confirm-authorized --xss -
 ```bash
 ctf tools
 ctf tools --doctor
+ctf tools --doctor --category forensics
 ```
 
 CTF Copilot may orchestrate external tools such as `file`, `strings`, `exiftool`, `binwalk`, `tshark`, `checksec`, `readelf`, `objdump`, `ROPgadget`, and `nmap` when installed.

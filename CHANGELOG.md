@@ -1,5 +1,14 @@
 # Changelog
 
+## v0.9.0
+
+- Added structured evidence reports, challenge workspaces, and saved reports.
+- Added optional challenge descriptions and custom flag-pattern support to `ctf solve`.
+- Added passive web mapping and static web source triage.
+- Added crypto context/source inspection, weak RSA checks, repeating-key XOR candidates, and editable solver scaffolds.
+- Added forensic evidence correlation, explicit encrypted-ZIP password candidates, and TCP payload clue analysis.
+- Added category-filtered tool doctor output and tests for new workflows.
+
 ## v0.8.0
 
 - Reworked crypto analysis into evidence-driven beam search.
