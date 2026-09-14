@@ -164,8 +164,8 @@ COMMAND_SECTIONS: list[tuple[str, list[tuple[str, str]]]] = [
         ("ctf forensics triage <file>", "Best first command for unknown file."),
         ("ctf forensics metadata <file>", "EXIF/comment/GPS/software clues."),
         ("ctf forensics stego <image>", "Hidden data checks for image/audio."),
-        ("ctf forensics archive <archive>", "Lists entries/encryption/nesting clues."),
-        ("ctf forensics recurse <archive>", "Safely inspects nested ZIP layers."),
+        ("ctf forensics archive <archive> [--password WORD] [--extract DIR]", "Lists entries, tests clue passwords, and optionally extracts."),
+        ("ctf forensics recurse <archive>", "Safely inspects nested readable archive layers."),
         ("ctf forensics pcap <capture.pcap>", "Summarizes protocols/DNS/HTTP via tshark."),
         ("ctf forensics evidence <file>", "Correlates magic bytes and embedded clues."),
     ]),
@@ -192,6 +192,7 @@ COMMAND_SECTIONS: list[tuple[str, list[tuple[str, str]]]] = [
         ("ctf web headers <url>", "Headers and missing security hints."),
         ("ctf web map <url> [--max-pages N]", "Bounded passive same-origin crawl."),
         ("ctf web source <path>", "Static source triage without execution."),
+        ("ctf web cbc-bitflip <url> [cookie] --auto-cookie --confirm-authorized", "Authorized CBC cookie helper; can obtain a fresh auth_name cookie."),
         ("ctf web test <url> --confirm-authorized [--xss --sqli --methods]", "Controlled active indicators only on authorized targets."),
     ]),
     ("NETWORK - discover services exposed by a CTF host", [

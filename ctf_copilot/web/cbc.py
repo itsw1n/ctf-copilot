@@ -3,7 +3,20 @@ from __future__ import annotations
 import base64
 import urllib.error
 import urllib.request
+from http.cookiejar import CookieJar
 from ..shared.flags import find_flags
+
+def acquire_cookie(url: str, cookie_name: str='auth_name') -> tuple[str|None,str]:
+    """Fetch a fresh public CTF session; never reads browser cookies."""
+    jar=CookieJar(); opener=urllib.request.build_opener(urllib.request.HTTPCookieProcessor(jar))
+    try:
+        request=urllib.request.Request(url,headers={'User-Agent':'CTF-Copilot/0.9 authorized-ctf'})
+        with opener.open(request,timeout=10): pass
+    except (OSError,urllib.error.HTTPError) as exc:
+        return None,f'Could not obtain a fresh cookie: {exc}'
+    for item in jar:
+        if item.name==cookie_name: return item.value,f'Obtained fresh {cookie_name} cookie from the target.'
+    return None,f'Target did not set a {cookie_name} cookie. Log in or supply it manually.'
 
 def _request(url: str, cookie_name: str, value: str) -> str:
     request=urllib.request.Request(url,headers={'User-Agent':'CTF-Copilot/0.9 authorized-ctf','Cookie':f'{cookie_name}={value}'})
