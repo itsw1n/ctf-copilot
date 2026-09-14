@@ -20,4 +20,15 @@ class CliTests(unittest.TestCase):
         self.assertIn("\x1b[", c("x", "1", enabled=True))
         self.assertEqual(c("x", "1", enabled=False), "x")
 
+    def test_render_commands_plain_and_color(self):
+        from ctf_copilot.commands_text import render_commands
+        plain = render_commands(use_color=False)
+        self.assertNotIn("\x1b[", plain)
+        self.assertIn("ctf solve <target>", plain)
+        self.assertIn("ctf crypto analyze <text>", plain)
+        self.assertIn("ctf forensics triage <file>", plain)
+        colored = render_commands(use_color=True)
+        self.assertIn("\x1b[", colored)
+        self.assertIn("ctf solve <target>", colored)
+
 if __name__=='__main__': unittest.main()

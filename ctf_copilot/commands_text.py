@@ -1,3 +1,4 @@
+from __future__ import annotations
 COMMANDS = r"""
 CTF COPILOT v0.8 - QUICK COMMAND GUIDE
 ======================================
@@ -110,3 +111,105 @@ Rule of thumb:
   Unknown file -> ctf forensics triage <file>
   Unknown binary -> ctf reverse triage <binary> + ctf pwn triage <binary>
 """.strip()
+try:
+    from importlib.metadata import version as _pkg_version
+except ImportError:
+    _pkg_version = None  # type: ignore
+
+def _app_version() -> str:
+    try:
+        if _pkg_version is None:
+            return "v0.9"
+        return "v" + _pkg_version("ctf-copilot")
+    except Exception:
+        return "v0.9"
+
+COMMAND_SECTIONS: list[tuple[str, list[tuple[str, str]]]] = [
+    ("START HERE", [
+        ("ctf solve <target>", "Unknown category first-pass classification + useful category analysis."),
+        ("ctf tools", "Shows which external Kali helpers are installed."),
+        ("ctf tools --doctor", "Shows missing helpers and practical install/search hints."),
+    ]),
+    ("CRYPTO - encoded/encrypted/hash-looking text", [
+        ("ctf crypto analyze <text>", "Best first command for unknown encoded text."),
+        ("ctf crypto decode <text> --kind <type>", "Direct decode when you know the type."),
+        ("ctf crypto caesar <text>", "Ranks Caesar rotations."),
+        ("ctf crypto xor <hex>", "Suspected single-byte XOR as hex."),
+        ("ctf crypto xor-repeat <hex>", "Short repeating-key XOR candidates."),
+        ("ctf crypto jwt <token>", "Decodes JWT header/payload only; does not verify signature."),
+        ("ctf crypto hash <digest>", "Identifies likely hash families."),
+        ("ctf crypto inspect <file-or-text>", "Finds RSA/XOR/hash clues without executing source."),
+        ("ctf crypto rsa <file-or-text>", "Safe small-exponent or small-factor RSA recovery."),
+        ("ctf crypto template <source> [--output]", "Generates editable solve.py scaffold."),
+    ]),
+    ("FORENSICS - files/images/archives/network captures", [
+        ("ctf forensics triage <file>", "Best first command for unknown file."),
+        ("ctf forensics metadata <file>", "EXIF/comment/GPS/software clues."),
+        ("ctf forensics stego <image>", "Hidden data checks for image/audio."),
+        ("ctf forensics archive <archive>", "Lists entries/encryption/nesting clues."),
+        ("ctf forensics recurse <archive>", "Safely inspects nested ZIP layers."),
+        ("ctf forensics pcap <capture.pcap>", "Summarizes protocols/DNS/HTTP via tshark."),
+        ("ctf forensics evidence <file>", "Correlates magic bytes and embedded clues."),
+    ]),
+    ("REVERSE - understand a compiled program", [
+        ("ctf reverse triage <binary>", "File type, protections, imports/symbols/strings."),
+        ("ctf reverse strings <binary>", "Passwords, keys, flags in binary."),
+        ("ctf reverse symbols <binary>", "Function/symbol names when available."),
+        ("ctf reverse functions <binary>", "Interesting named functions."),
+        ("ctf reverse imports <binary>", "Dangerous imports like system/strcmp."),
+        ("ctf reverse disasm <binary> --function <name>", "Disassembles selected function."),
+    ]),
+    ("PWN - exploit a binary bug", [
+        ("ctf pwn triage <binary>", "Protections + likely direction."),
+        ("ctf pwn checksec <binary>", "NX/PIE/Canary/RELRO."),
+        ("ctf pwn cyclic create 200", "Crash pattern for offsets."),
+        ("ctf pwn cyclic offset 0x6161616c", "Finds crash value in pattern."),
+        ("ctf pwn rop <binary>", "Reusable ROP gadgets preview."),
+    ]),
+    ("WEB - inspect an authorized CTF web application", [
+        ("ctf web analyze <url>", "Passive forms/comments/cookies/scripts/endpoints."),
+        ("ctf web endpoints <url>", "Paths/API routes from HTML/JS."),
+        ("ctf web js <url-or-js-url>", "Endpoints/params/secrets in JavaScript."),
+        ("ctf web params <url>", "Parameter names for manual Burp testing."),
+        ("ctf web headers <url>", "Headers and missing security hints."),
+        ("ctf web map <url> [--max-pages N]", "Bounded passive same-origin crawl."),
+        ("ctf web source <path>", "Static source triage without execution."),
+        ("ctf web test <url> --confirm-authorized [--xss --sqli --methods]", "Controlled active indicators only on authorized targets."),
+    ]),
+    ("NETWORK - discover services exposed by a CTF host", [
+        ("ctf network scan <host>", "Common TCP ports + next-step hints."),
+        ("ctf network services <host>", "Nmap version detection."),
+        ("ctf network dns <domain>", "Common DNS records."),
+        ("ctf network connect <host> <port>", "Banner grab from TCP service."),
+    ]),
+    ("OSINT - passive public information", [
+        ("ctf osint domain <domain>", "Passive DNS/WHOIS-style clues."),
+        ("ctf osint username <username>", "Public profile leads for manual verification."),
+    ]),
+    ("FLAGS / WORKSPACE / MISC", [
+        ("ctf flags scan <file-or-directory>", "Flag-pattern search in evidence."),
+        ("ctf solve <target> --workspace <name>", "Save structured report."),
+        ("ctf report <workspace>", "Show saved structured report."),
+        ("ctf workspace new <name>", "Clean challenge workspace folders."),
+        ("ctf workspace note <name> <note>", "Save finding during competition."),
+        ("ctf misc morse <text> | base ... | timestamp ...", "Small conversions."),
+    ]),
+]
+
+def render_commands(use_color: bool = True) -> str:
+    from .shared.style import header, section, cmd, dim
+    lines = [header(f"CTF COPILOT {_app_version()} - QUICK COMMAND GUIDE", enabled=use_color), "=" * 38, ""]
+    for title, items in COMMAND_SECTIONS:
+        lines.append(section(title, enabled=use_color))
+        for command, desc in items:
+            lines.append(f"  {cmd(command, enabled=use_color)}")
+            lines.append(f"      {dim(desc, enabled=use_color)}")
+        lines.append("")
+    lines += [
+        section("Rule of thumb:", enabled=use_color),
+        "  Unknown challenge -> ctf solve <target>",
+        "  Unknown encoded text -> ctf crypto analyze <text>",
+        "  Unknown file -> ctf forensics triage <file>",
+        "  Unknown binary -> ctf reverse triage <binary> + ctf pwn triage <binary>",
+    ]
+    return "\n".join(lines).strip()
