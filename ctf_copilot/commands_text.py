@@ -99,7 +99,7 @@ FLAGS / WORKSPACE / MISC
   ctf flags scan <file-or-directory>
       Recursively searches collected evidence for common flag patterns.
   ctf workspace new <name>
-      Creates a clean challenge workspace with files/extracted/evidence/notes folders.
+      Creates one flat challenge workspace folder with notes.md.
   ctf workspace note <name> <note>
       Saves a finding so you do not lose progress during competition.
   ctf misc morse <text> | base ... | timestamp ...
@@ -209,7 +209,8 @@ COMMAND_SECTIONS: list[tuple[str, list[tuple[str, str]]]] = [
         ("ctf flags scan <file-or-directory>", "Flag-pattern search in evidence."),
         ("ctf solve <target> --workspace <name>", "Save structured report."),
         ("ctf report <workspace>", "Show saved structured report."),
-        ("ctf workspace new <name>", "Clean challenge workspace folders."),
+        ("ctf workspace new <name>", "One flat challenge workspace folder."),
+        ("ctf workspace flatten <name>", "Flatten an older nested workspace."),
         ("ctf workspace note <name> <note>", "Save finding during competition."),
         ("ctf misc morse <text> | base ... | timestamp ...", "Small conversions."),
     ]),
