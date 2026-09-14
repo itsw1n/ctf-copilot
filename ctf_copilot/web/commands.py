@@ -3,19 +3,24 @@ import json
 from .client import fetch
 from .analyzer import analyze, render
 from .headers import audit
+from .js import inspect as js_inspect, params_from_page
 from .probes.methods import probe as methods_probe
 from .probes.xss import probe as xss_probe
 from .probes.sqli import probe as sqli_probe
 from ..crypto.formats.jwt import decode as decode_jwt
 
 def register(sub):
-    q=sub.add_parser('web',help='Web exploitation helpers'); sp=q.add_subparsers(dest='action',required=True)
-    z=sp.add_parser('analyze',help='Passive page/forms/scripts/cookies/endpoints inspection'); z.add_argument('url'); z.set_defaults(fn=lambda a: print(render(analyze(a.url))))
-    z=sp.add_parser('headers',help='Show response headers and security-header audit'); z.add_argument('url'); z.set_defaults(fn=lambda a: _headers(a.url))
-    z=sp.add_parser('endpoints',help='Extract endpoint-like paths from HTML/JS'); z.add_argument('url'); z.set_defaults(fn=lambda a: _eps(a.url))
-    z=sp.add_parser('jwt',help='Decode JWT header/payload'); z.add_argument('token'); z.set_defaults(fn=lambda a: print(json.dumps(decode_jwt(a.token),indent=2)))
-    z=sp.add_parser('compare',help='Compare status/body size for two URLs'); z.add_argument('url1'); z.add_argument('url2'); z.set_defaults(fn=lambda a: _compare(a.url1,a.url2))
-    z=sp.add_parser('test',help='Controlled active probes; authorization confirmation required'); z.add_argument('url'); z.add_argument('--confirm-authorized',action='store_true'); z.add_argument('--headers',action='store_true'); z.add_argument('--methods',action='store_true'); z.add_argument('--xss',action='store_true'); z.add_argument('--sqli',action='store_true'); z.set_defaults(fn=_test)
+    q=sub.add_parser('web',help='Inspect authorized CTF web applications',description='Use for web challenges: start passive, map endpoints/parameters, then use controlled active probes only when authorized.')
+    sp=q.add_subparsers(dest='action',required=True)
+    z=sp.add_parser('analyze',help='Passive first-pass web reconnaissance',description='Best first web command: inspect status, forms, comments, cookies, scripts and endpoint clues.'); z.add_argument('url'); z.set_defaults(fn=lambda a: print(render(analyze(a.url))))
+    z=sp.add_parser('headers',help='Response/security-header audit',description='Use to inspect cookies/headers and identify missing defensive headers as clues.'); z.add_argument('url'); z.set_defaults(fn=lambda a: _headers(a.url))
+    z=sp.add_parser('endpoints',help='Extract paths/API routes from HTML/JS',description='Use when hidden API/admin/debug routes may be referenced in frontend code.'); z.add_argument('url'); z.set_defaults(fn=lambda a: _eps(a.url))
+    z=sp.add_parser('js',help='Inspect JavaScript for routes/params/secret-looking strings',description='Use when app.js/bundles may reveal hidden endpoints, parameter names, tokens, or developer clues.'); z.add_argument('url'); z.set_defaults(fn=lambda a: print(js_inspect(a.url)))
+    z=sp.add_parser('params',help='List interesting parameter names',description='Use before Burp/manual testing to see what inputs and query parameters the app exposes.'); z.add_argument('url'); z.set_defaults(fn=lambda a: [print(x) for x in params_from_page(a.url)] or print('No parameter names found.'))
+    z=sp.add_parser('jwt',help='Decode JWT header/payload',description='Decode a JWT for inspection. This does not verify or bypass its signature.'); z.add_argument('token'); z.set_defaults(fn=lambda a: print(json.dumps(decode_jwt(a.token),indent=2)))
+    z=sp.add_parser('compare',help='Compare status/body size for two URLs',description='Use to compare two controlled requests and spot response differences.'); z.add_argument('url1'); z.add_argument('url2'); z.set_defaults(fn=lambda a: _compare(a.url1,a.url2))
+    z=sp.add_parser('test',help='Controlled active indicators; authorization required',description='Run low-impact header/method/reflection/SQL-error indicators only on CTF, owned, or explicitly authorized targets.'); z.add_argument('url'); z.add_argument('--confirm-authorized',action='store_true'); z.add_argument('--headers',action='store_true'); z.add_argument('--methods',action='store_true'); z.add_argument('--xss',action='store_true'); z.add_argument('--sqli',action='store_true'); z.set_defaults(fn=_test)
+
 def _headers(url):
     st,_,h,_,_=fetch(url); print(f'Status: {st}'); [print(f'{k}: {v}') for k,v in h.items()]; print('\nSecurity header audit:'); [print('  '+x) for x in audit(h,url.startswith('https://'))]
 def _eps(url):
