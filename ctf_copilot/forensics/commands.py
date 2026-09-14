@@ -5,6 +5,7 @@ from .archive import inspect as archive
 from .recurse import inspect as recurse
 from .pcap import summarize as pcap
 from .stego import inspect as stego
+from .evidence import inspect as evidence
 from ..shared.tooling import run_tool, which
 
 def register(sub):
@@ -13,15 +14,18 @@ def register(sub):
     defs=[
       ('triage','Unknown file? Run type/metadata/strings/embedded-data checks first.','Automatic first-pass file triage',lambda a: print(triage(a.path))),
       ('metadata','Use when EXIF/comments/GPS/software fields may contain clues.','Show ExifTool metadata',lambda a: metadata(a.path)),
-      ('archive','Use before extraction to inspect entries, encryption, and nesting clues.','Inspect ZIP/archive clues',lambda a: print(archive(a.path))),
+      ('archive','Use before extraction to inspect entries, encryption, and nesting clues.','Inspect ZIP/archive clues',lambda a: print(archive(a.path, getattr(a,'password',[])))),
       ('recurse','Use on nested ZIP challenges; safely follows nested readable data/flags.','Safely inspect nested ZIP layers',lambda a: print(recurse(a.path))),
       ('pcap','Use for .pcap/.pcapng challenges to summarize protocols/DNS/HTTP.','Summarize PCAP with tshark',lambda a: print(pcap(a.path))),
       ('stego','Use when an image/audio file may hide data beyond visible content.','Run type-appropriate stego checks',lambda a: print(stego(a.path))),
     ]
     for name,desc,help_,fn in defs:
-        z=sp.add_parser(name,help=help_,description=desc); z.add_argument('path'); z.set_defaults(fn=fn)
+        z=sp.add_parser(name,help=help_,description=desc); z.add_argument('path');
+        if name=='archive': z.add_argument('--password',action='append',default=[],help='Password candidate from challenge clues; tried in memory only')
+        z.set_defaults(fn=fn)
     z=sp.add_parser('strings',help='Extract printable strings',description='Use when a binary/file may contain readable passwords, URLs, flags, or clues.'); z.add_argument('path'); z.set_defaults(fn=lambda a:_strings(a.path))
     z=sp.add_parser('hex',help='Show first bytes as hex',description='Use to inspect file signatures/magic bytes manually.'); z.add_argument('path'); z.add_argument('--bytes',type=int,default=256); z.set_defaults(fn=lambda a: print(Path(a.path).read_bytes()[:max(1,min(a.bytes,4096))].hex(' ')))
+    z=sp.add_parser('evidence',help='Correlate magic bytes, embedded data and clue paths',description='Explains signature mismatches, embedded files, encoded text, and relevant next tools.'); z.add_argument('path'); z.set_defaults(fn=lambda a: print(evidence(a.path)))
 
 def _strings(path):
     if not which('strings'): raise SystemExit('strings is not installed.')
