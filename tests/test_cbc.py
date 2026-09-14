@@ -9,3 +9,8 @@ class CbcTests(unittest.TestCase):
         value,message=acquire_cookie('http://127.0.0.1:1')
         self.assertIsNone(value)
         self.assertIn('Could not obtain',message)
+
+    def test_invalid_cookie_does_not_call_progress(self):
+        calls=[]
+        bitflip('http://challenge.local','not-a-cookie',progress=calls.append)
+        self.assertEqual(calls,[])

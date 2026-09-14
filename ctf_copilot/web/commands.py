@@ -53,4 +53,4 @@ def _cbc(a):
         if not cookie: raise SystemExit(message)
         print(message)
     if not cookie: raise SystemExit('Supply a cookie value or use --auto-cookie.')
-    print(cbc_bitflip(a.url,cookie,a.cookie_name,max(1,min(a.max_attempts,2048))))
+    print(cbc_bitflip(a.url,cookie,a.cookie_name,max(1,min(a.max_attempts,2048)),print))
