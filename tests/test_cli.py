@@ -14,5 +14,10 @@ class CliTests(unittest.TestCase):
         ]:
             ns=parser.parse_args(argv)
             self.assertTrue(callable(ns.fn))
+    def test_supports_color_respects_flag_and_env(self):
+        from ctf_copilot.shared.style import supports_color, c
+        self.assertFalse(supports_color(True))
+        self.assertIn("\x1b[", c("x", "1", enabled=True))
+        self.assertEqual(c("x", "1", enabled=False), "x")
 
 if __name__=='__main__': unittest.main()
