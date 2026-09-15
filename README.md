@@ -94,9 +94,10 @@ ctf reverse triage <binary>   # binary protections, imports, high-signal strings
 ctf report <workspace>        # show the saved structured report again
 ```
 
-Specialist shortcuts stay available but are no longer in the beginner list:
-`ctf crypto caesar`, `ctf crypto jwt`, `ctf crypto hash` (plus `decode`,
-`template`, and the other per-category actions).
+Compat shortcuts stay available but are not in the beginner list:
+`ctf crypto caesar`, `ctf crypto jwt`, `ctf crypto hash` (see `ctf crypto --help`).
+Primary crypto commands (`decode`, `template`, plus xor/rsa/block/inspect/vigenere
+and the other per-category actions) remain in `ctf commands`.
 
 Useful flags:
 

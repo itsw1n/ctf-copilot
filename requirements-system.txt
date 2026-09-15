@@ -5,20 +5,22 @@
 # bare package names via `dpkg-query -W` / `sudo apt install`.
 #
 # --- general triage ---
-# file -> file ; strings/readelf/objdump -> binutils ; xxd -> xxd
+# file -> file ; strings/readelf/objdump -> binutils
+# python3 is the base interpreter (not installed via apt here; see GROUPS GENERAL/CRYPTO)
 file
 binutils
-xxd
 # --- metadata / embedded data ---
 # exiftool -> libimage-exiftool-perl ; binwalk -> binwalk
-exiftool
+libimage-exiftool-perl
 binwalk
-# --- carving (manual/handoff use; referenced by archive guidance) ---
+# --- carving handoffs only (never auto-run; manual guidance, not in doctor GROUPS) ---
+# foremost/scalpel are manual carving handoffs only
 foremost
 scalpel
 # --- archives ---
-# 7z/7zz -> p7zip-full ; unrar -> unrar-free
+# 7z/7zz -> p7zip-full (auto-run via shared/archives)
 p7zip-full
+# unrar -> unrar-free (handoff-only; 7z handles RAR listing, unrar not auto-run)
 unrar-free
 # --- image stego ---
 # zsteg -> zsteg (ruby gem on some setups) ; steghide -> steghide
@@ -28,12 +30,23 @@ steghide
 pngcheck
 zbar-tools
 # --- audio ---
-# sox/soxi -> sox
+# sox/soxi -> sox ; mediainfo -> mediainfo
 sox
+mediainfo
 # --- network captures ---
 # tshark -> tshark (wireshark-cli family; GUI package is wireshark)
 tshark
+# tcpflow is handoff-only (not auto-run, not in doctor GROUPS)
 tcpflow
+# --- network recon (doctor NETWORK: nmap/dig/whois) ---
+# nmap -> nmap ; dig -> dnsutils ; whois -> whois
+nmap
+dnsutils
+whois
+# --- reverse/pwn (doctor REVERSE/PWN) ---
+# checksec -> checksec ; ROPgadget -> python3-ropgadget
+checksec
+python3-ropgadget
 # --- memory forensics ---
 # vol/vol.py/volatility/volatility3 -> volatility3
 volatility3
@@ -41,10 +54,13 @@ volatility3
 # mmls/fsstat/fls/icat -> sleuthkit
 sleuthkit
 # --- documents ---
-# pdfinfo -> poppler-utils ; pdfid -> no Kali apt package (use Didier Stevens pdfid.py)
+# pdfinfo -> poppler-utils ; pdfid -> no Kali apt package (manual: Didier Stevens pdfid.py, not auto-run)
 # olevba -> oletools
 poppler-utils
 oletools
+# --- hex helper handoff-only (never auto-run, not in doctor GROUPS) ---
+# xxd -> xxd
+xxd
 # --- password-cracking handoffs only (never auto-run; see crack_handoff) ---
 # john (+7z2john.pl/rar2john ship with john) -> john ; fcrackzip -> fcrackzip
 # hashcat -> hashcat
