@@ -1,0 +1,286 @@
+[
+  {
+    "id": "f01",
+    "group": "F1",
+    "files": [
+      "f01_magic_mismatch.jpg"
+    ],
+    "expect": "flag",
+    "technique": "ext-vs-magic mismatch + strings"
+  },
+  {
+    "id": "f02",
+    "group": "F1",
+    "files": [
+      "f02_utf16_flag.bin"
+    ],
+    "expect": "flag",
+    "technique": "utf-16 strings decode"
+  },
+  {
+    "id": "f03",
+    "group": "F1",
+    "files": [
+      "f03_appended_data.png"
+    ],
+    "expect": "flag",
+    "technique": "appended-zip carve + recurse"
+  },
+  {
+    "id": "f04",
+    "group": "F1",
+    "files": [
+      "f04_polyglot.zip"
+    ],
+    "expect": "flag",
+    "technique": "png-zip polyglot carve"
+  },
+  {
+    "id": "f05",
+    "group": "F1",
+    "files": [
+      "f05_encoded_text.txt"
+    ],
+    "expect": "flag",
+    "technique": "base64 layered-decode (crypto referral)"
+  },
+  {
+    "id": "f06",
+    "group": "F1",
+    "files": [
+      "f06_negative.bin"
+    ],
+    "expect": "inconclusive",
+    "technique": "negative: uniform non-flag bytes"
+  },
+  {
+    "id": "f07",
+    "group": "F2",
+    "files": [
+      "f07_zip_nested.zip"
+    ],
+    "expect": "flag",
+    "technique": "zip-in-zip bounded recurse"
+  },
+  {
+    "id": "f08",
+    "group": "F2",
+    "files": [
+      "f08_tar_nested.tar"
+    ],
+    "expect": "flag",
+    "technique": "zip-in-tar bounded recurse"
+  },
+  {
+    "id": "f09",
+    "group": "F2",
+    "files": [
+      "f09_gzip_single.gz"
+    ],
+    "expect": "flag",
+    "technique": "gzip single-file extract"
+  },
+  {
+    "id": "f10",
+    "group": "F2",
+    "files": [
+      "f10_encrypted.zip"
+    ],
+    "expect": "decisive-artifact",
+    "technique": "encrypted-bit detection, no brute-force"
+  },
+  {
+    "id": "f11",
+    "group": "F2",
+    "files": [
+      "f11_zipslip.zip"
+    ],
+    "expect": "decisive-artifact",
+    "technique": "zipslip traversal rejection"
+  },
+  {
+    "id": "f12",
+    "group": "F2",
+    "files": [
+      "f12_sizebomb.zip"
+    ],
+    "expect": "decisive-artifact",
+    "technique": "advertised-size rejection under tiny budget (no OOM)"
+  },
+  {
+    "id": "f13",
+    "group": "F2",
+    "files": [
+      "f13_tar_gzip.tar"
+    ],
+    "expect": "flag",
+    "technique": "gzip-in-tar nested extract (7z fallback when present)",
+    "tool_gated": true,
+    "note": "uses gzip-in-tar so stdlib suffices; 7z path only if installed"
+  },
+  {
+    "id": "f14",
+    "group": "F3",
+    "files": [
+      "f14_metadata.png"
+    ],
+    "expect": "flag",
+    "technique": "png tEXt metadata strings"
+  },
+  {
+    "id": "f15",
+    "group": "F3",
+    "files": [
+      "f15_qr_hint.png"
+    ],
+    "expect": "decisive-artifact",
+    "technique": "qr hint guidance, zbarimg graceful when missing",
+    "tool_gated": true,
+    "note": "zbarimg enhances depth; offline hint decisive without it"
+  },
+  {
+    "id": "f16",
+    "group": "F3",
+    "files": [
+      "f16_zsteg_clue.png"
+    ],
+    "expect": "flag",
+    "technique": "zsteg lsb hint + strings"
+  },
+  {
+    "id": "f17",
+    "group": "F3",
+    "files": [
+      "f17_appended_archive.jpg"
+    ],
+    "expect": "flag",
+    "technique": "jpg + appended zip carve"
+  },
+  {
+    "id": "f18",
+    "group": "F3",
+    "files": [
+      "f18_renamed_image.bin"
+    ],
+    "expect": "flag",
+    "technique": "renamed png (.bin) magic classify + strings"
+  },
+  {
+    "id": "f19",
+    "group": "F3",
+    "files": [
+      "f19_clean.png"
+    ],
+    "expect": "inconclusive",
+    "technique": "negative: clean 1x1 png"
+  },
+  {
+    "id": "f20",
+    "group": "F4",
+    "files": [
+      "f20_http_stream.pcap"
+    ],
+    "expect": "flag",
+    "technique": "http stream payload strings",
+    "tool_gated": true,
+    "note": "tshark enhances depth; raw-strings path decisive offline"
+  },
+  {
+    "id": "f21",
+    "group": "F4",
+    "files": [
+      "f21_dns_payload.pcap"
+    ],
+    "expect": "flag",
+    "technique": "dns label payload strings",
+    "tool_gated": true,
+    "note": "tshark enhances depth; raw-strings path decisive offline"
+  },
+  {
+    "id": "f22",
+    "group": "F4",
+    "files": [
+      "f22_ftp_creds.pcap"
+    ],
+    "expect": "decisive-artifact",
+    "technique": "ftp credential strings guidance",
+    "tool_gated": true,
+    "note": "tshark enhances depth; raw-strings path decisive offline"
+  },
+  {
+    "id": "f23",
+    "group": "F4",
+    "files": [
+      "f23_icmp_udp.pcap"
+    ],
+    "expect": "flag",
+    "technique": "icmp/udp payload strings",
+    "tool_gated": true,
+    "note": "tshark enhances depth; raw-strings path decisive offline"
+  },
+  {
+    "id": "f24",
+    "group": "F4",
+    "files": [
+      "f24_clean.pcap"
+    ],
+    "expect": "inconclusive",
+    "technique": "negative: header-only pcap",
+    "tool_gated": true,
+    "note": "tshark enhances depth; raw-strings path decisive offline"
+  },
+  {
+    "id": "f25",
+    "group": "F5",
+    "files": [
+      "f25_pdf_meta.pdf"
+    ],
+    "expect": "flag",
+    "technique": "pdf title/js static scan (never exec)"
+  },
+  {
+    "id": "f26",
+    "group": "F5",
+    "files": [
+      "f26_office_comment.docx"
+    ],
+    "expect": "flag",
+    "technique": "office zip comments/urls static parse"
+  },
+  {
+    "id": "f27",
+    "group": "F5",
+    "files": [
+      "f27_office_macro.doc"
+    ],
+    "expect": "decisive-artifact",
+    "technique": "ole macro static guidance (never exec)"
+  },
+  {
+    "id": "f28",
+    "group": "F6",
+    "files": [
+      "f28_disk_hint.img"
+    ],
+    "expect": "flag",
+    "technique": "disk read-only strings + sleuthkit guidance"
+  },
+  {
+    "id": "f29",
+    "group": "F6",
+    "files": [
+      "f29_memory_hint.mem"
+    ],
+    "expect": "flag",
+    "technique": "memory strings + volatility windows.info guidance"
+  },
+  {
+    "id": "f30",
+    "group": "F6",
+    "files": [
+      "f30_audio_appended.wav"
+    ],
+    "expect": "flag",
+    "technique": "wav + appended zip carve"
+  }
+]
