@@ -57,7 +57,7 @@ def summarize(path: str, budget=None) -> str:
                                 '-T', 'fields', '-e', 'ftp.request.command', '-e', 'ftp.request.arg'], 30000)
     _run('UDP/ICMP overview', ['tshark', '-r', str(p), '-Y', 'udp or icmp', '-T', 'fields',
                                '-e', 'frame.number', '-e', 'ip.src', '-e', 'ip.dst', '-e', 'dns.qry.name'], 40000)
-    objs = _run('object clues (HTTP/SMB/FTP in hierarchy)', ['tshark', '-r', str(p), '-q', '-z', 'io,phs'])
+    objs = _run('object clues (HTTP stats)', ['tshark', '-r', str(p), '-q', '-z', 'http,stat'])
     _ = objs
     # Suspicious DNS: long labels / high entropy / many unique queries.
     try:

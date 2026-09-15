@@ -432,7 +432,7 @@ def triage_file(path, budget=None, description: str = "", flag_pattern: str | No
         if which("tshark"):
             try:
                 from .pcap import summarize as pcap_sum
-                summ = pcap_sum(str(p))[:3000]
+                summ = pcap_sum(str(p), budget=b)[:3000]
                 findings.append(_finding(
                     "forensics", "pcap-quick", _cap(summ, b)[:2000], 0.7,
                     "tshark summary for protocols/DNS/HTTP",

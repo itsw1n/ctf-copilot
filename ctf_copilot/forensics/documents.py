@@ -72,7 +72,8 @@ def _office_zip_scan(path: Path, data: bytes) -> tuple[list[str], list[str], lis
                     embedded.append(name)
                 if "comment" in low or "noteslide" in low or "sharedstrings" in low:
                     try:
-                        blob = z.read(info)[:200000]
+                        with z.open(info) as fobj:
+                            blob = fobj.read(200001)[:200000]
                         txt = blob.decode("utf-8", "ignore")
                         # crude comment text extraction
                         for m in re.findall(r"<[^>]*>([^<>]{4,200})", txt)[:10]:
@@ -89,7 +90,8 @@ def _office_zip_scan(path: Path, data: bytes) -> tuple[list[str], list[str], lis
                     if not info.filename.lower().endswith((".xml", ".rels", ".txt")):
                         continue
                     try:
-                        blob = z.read(info)[:300000]
+                        with z.open(info) as fobj:
+                            blob = fobj.read(300001)[:300000]
                     except Exception:
                         continue
                     for m in URL_RE.findall(blob)[:20]:

@@ -11,6 +11,16 @@ def run_tool(argv,timeout=45,max_output=120000):
     except subprocess.TimeoutExpired: return 124,f'Timed out after {timeout}s: {" ".join(argv)}'
     except OSError as e: return 127,str(e)
 
+def run_tool_bytes(argv,timeout=45,max_output=2000000):
+    """Byte-faithful capture for binary tools (e.g. icat). Returns (rc, raw stdout bytes, capped)."""
+    try:
+        r=subprocess.run(argv,capture_output=True,timeout=timeout)
+        raw=r.stdout or b''
+        if len(raw)>max_output: raw=raw[:max_output]
+        return r.returncode,raw
+    except subprocess.TimeoutExpired: return 124,b''
+    except OSError: return 127,b''
+
 GROUPS={
 'GENERAL':['file','strings','xxd','curl','wget','jq','openssl','7z','git','python3','pipx'],
 'WEB':['nmap','ffuf','gobuster','sqlmap','nikto','whatweb'],

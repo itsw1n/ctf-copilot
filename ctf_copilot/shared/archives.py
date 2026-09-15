@@ -410,7 +410,10 @@ def _read_capped(fobj, limit: int, chunk: int = 65536) -> tuple[bytes, bool]:
     parts: list[bytes] = []
     total = 0
     while True:
-        piece = fobj.read(min(chunk, cap - total))
+        remaining = cap - total
+        if remaining <= 0:
+            return b"".join(parts), True
+        piece = fobj.read(min(chunk, remaining))
         if not piece:
             break
         parts.append(piece)
@@ -435,8 +438,11 @@ def _decompress_single_streamed(fmt: str, raw: bytes, limit: int) -> tuple[bytes
             step = 65536
             pos = 0
             while pos < len(raw):
+                allow = cap - len(out)
+                if allow <= 0:
+                    return bytes(out), True, ""
                 try:
-                    piece = dec.decompress(raw[pos:pos + step], cap - len(out))
+                    piece = dec.decompress(raw[pos:pos + step], allow)
                 except Exception as e:
                     return None, False, str(e)
                 out.extend(piece)
@@ -447,8 +453,11 @@ def _decompress_single_streamed(fmt: str, raw: bytes, limit: int) -> tuple[bytes
                     break
             # flush remainder within cap
             while not dec.eof:
+                allow = cap - len(out)
+                if allow <= 0:
+                    return bytes(out), True, ""
                 try:
-                    piece = dec.decompress(b"", cap - len(out))
+                    piece = dec.decompress(b"", allow)
                 except Exception:
                     break
                 if not piece:
@@ -463,8 +472,11 @@ def _decompress_single_streamed(fmt: str, raw: bytes, limit: int) -> tuple[bytes
         step = 65536
         pos = 0
         while pos < len(raw):
+            allow = cap - len(out)
+            if allow <= 0:
+                return bytes(out), True, ""
             try:
-                piece = dec.decompress(raw[pos:pos + step], cap - len(out))
+                piece = dec.decompress(raw[pos:pos + step], allow)
             except Exception as e:
                 return None, False, str(e)
             if piece:

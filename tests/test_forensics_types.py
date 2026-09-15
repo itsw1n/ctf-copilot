@@ -25,8 +25,11 @@ class TestDocuments(unittest.TestCase):
         try:
             findings, artifacts, render = documents.analyze(path, None)
             blob = " ".join(f.observation + " " + f.why for f in findings) + " " + render
-            self.assertIn("javascript", blob.lower() + "js")
-            self.assertTrue("js" in blob.lower() or "javascript" in blob.lower())
+            low = blob.lower()
+            # real JS markers from fixture (not tautological): /JavaScript token + embedded JS payload
+            self.assertIn("javascript", low)
+            self.assertTrue("/js" in low or "app.alert" in blob or "flag{pdf_js_123}" in blob,
+                            f"missing real JS marker: {blob[:500]}")
         finally:
             os.unlink(path)
 
@@ -139,6 +142,61 @@ class TestStreamCap(unittest.TestCase):
         finally:
             os.unlink(path)
 
+    def test_zip_entry_over_limit_rejected(self):
+        from ctf_copilot.shared import archives as A
+        from ctf_copilot.analysis.budget import AnalysisBudget
+        buf = io.BytesIO()
+        with zipfile.ZipFile(buf, "w") as z:
+            z.writestr("big.bin", b"A" * 5000)
+        path = _tmp_file(".zip", buf.getvalue())
+        outdir = tempfile.mkdtemp()
+        try:
+            budget = AnalysisBudget.named("balanced")
+            budget.max_file_bytes = 1024
+            budget.max_total_bytes = 2048
+            ok, msg, _arts = A.extract_with_artifacts(path, outdir, budget=budget)
+            self.assertFalse(ok)
+            low = msg.lower()
+            self.assertTrue(any(k in low for k in ("size", "bomb", "large", "exceed", "limit", "reject")))
+        finally:
+            os.unlink(path)
+
+    def test_bz2_over_limit_rejected(self):
+        import bz2 as _bz2
+        from ctf_copilot.shared import archives as A
+        from ctf_copilot.analysis.budget import AnalysisBudget
+        raw = _bz2.compress(b"B" * 5000)
+        path = _tmp_file(".bz2", raw)
+        outdir = tempfile.mkdtemp()
+        try:
+            budget = AnalysisBudget.named("balanced")
+            budget.max_file_bytes = 1024
+            budget.max_total_bytes = 2048
+            ok, msg, _arts = A.extract_with_artifacts(path, outdir, budget=budget)
+            self.assertFalse(ok)
+            low = msg.lower()
+            self.assertTrue(any(k in low for k in ("size", "bomb", "large", "exceed", "limit", "reject")))
+        finally:
+            os.unlink(path)
+
+    def test_xz_over_limit_rejected(self):
+        import lzma as _lzma
+        from ctf_copilot.shared import archives as A
+        from ctf_copilot.analysis.budget import AnalysisBudget
+        raw = _lzma.compress(b"C" * 5000)
+        path = _tmp_file(".xz", raw)
+        outdir = tempfile.mkdtemp()
+        try:
+            budget = AnalysisBudget.named("balanced")
+            budget.max_file_bytes = 1024
+            budget.max_total_bytes = 2048
+            ok, msg, _arts = A.extract_with_artifacts(path, outdir, budget=budget)
+            self.assertFalse(ok)
+            low = msg.lower()
+            self.assertTrue(any(k in low for k in ("size", "bomb", "large", "exceed", "limit", "reject")))
+        finally:
+            os.unlink(path)
+
 
 class TestWorkspacePersist(unittest.TestCase):
     def test_triage_workspace_persists(self):
@@ -156,6 +214,26 @@ class TestWorkspacePersist(unittest.TestCase):
             self.assertTrue(any("artifact" in n for n in names) or any(p.suffix in (".txt", ".json") for p in files),
                             f"no artifacts in workspace: {names}")
             self.assertTrue((Path(ws) / "solve-report.json").exists(), f"missing solve-report.json: {names}")
+        finally:
+            os.unlink(path)
+
+    def test_triage_workspace_rescan_stable(self):
+        """Run triage --workspace twice; artifact count must not grow (no self-copy)."""
+        from ctf_copilot.forensics import commands as C
+        buf = io.BytesIO()
+        with zipfile.ZipFile(buf, "w") as z:
+            z.writestr("flag.txt", "flag{workspace_123}")
+        path = _tmp_file(".zip", buf.getvalue())
+        ws = tempfile.mkdtemp()
+        try:
+            with mock.patch("builtins.print"):
+                C._triage(path, workspace=ws, budget="balanced")
+            first = sorted(p.name for p in Path(ws).iterdir() if p.is_file() and p.name.startswith("artifact-"))
+            with mock.patch("builtins.print"):
+                C._triage(path, workspace=ws, budget="balanced")
+            second = sorted(p.name for p in Path(ws).iterdir() if p.is_file() and p.name.startswith("artifact-"))
+            self.assertEqual(len(first), len(second),
+                             f"artifact count grew on rescan (duplication): {first} -> {second}")
         finally:
             os.unlink(path)
 

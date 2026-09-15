@@ -97,6 +97,15 @@ def analyze(path, budget=None) -> tuple[list, list, str]:
         if b.can_continue(size=1024):
             try:
                 out = Path(tempfile.mkdtemp(prefix="ctf-audio-")) / "spectrogram.png"
+
+                def _cleanup_tmp():
+                    try:
+                        if out.is_file():
+                            out.unlink()
+                        out.parent.rmdir()
+                    except Exception:
+                        pass
+
                 _rc, txt = run_tool(["sox", str(p), "-n", "spectrogram", "-o", str(out)],
                                     timeout=_timeout(b), max_output=20000)
                 if out.is_file() and out.stat().st_size > 0 and out.stat().st_size <= b.max_file_bytes:
@@ -110,11 +119,20 @@ def analyze(path, budget=None) -> tuple[list, list, str]:
                                                  ["inspect spectrogram for hidden text/images"], [], "detected", [str(out)]))
                         lines += ["", f"[spectrogram] {out}"]
                     else:
+                        _cleanup_tmp()
                         lines += ["", "[spectrogram] skipped: budget exhausted"]
                 else:
+                    _cleanup_tmp()
                     findings.append(_finding("forensics", "sox-spectrogram", "sox spectrogram produced no output", 0.3,
                                              "guarded", ["inspect manually: sox <file> -n spectrogram -o out.png"], [], "inconclusive", [txt[:200]]))
             except Exception as e:
+                try:
+                    if "out" in locals():
+                        if out.is_file():
+                            out.unlink()
+                        out.parent.rmdir()
+                except Exception:
+                    pass
                 findings.append(_finding("forensics", "sox-spectrogram", f"spectrogram skipped: {e}", 0.3,
                                          "guarded", ["sox <file> -n spectrogram -o out.png"], [], "inconclusive", [str(e)]))
         else:

@@ -7,7 +7,7 @@ from pathlib import Path
 from ..analysis.budget import AnalysisBudget
 from ..analysis.models import Artifact, Finding
 from ..analysis.runner import artifact_for
-from ..shared.tooling import run_tool, which
+from ..shared.tooling import run_tool, run_tool_bytes, which
 
 
 def _budget_or_default(budget):
@@ -42,14 +42,14 @@ def icat_candidate(image: str, inode: str | int, outdir: str | None = None, budg
     dest_dir.mkdir(parents=True, exist_ok=True)
     safe_inode = "".join(c if c.isalnum() else "_" for c in str(inode)) or "inode"
     dest = dest_dir / f"icat-{safe_inode}.bin"
-    _rc, txt = run_tool(["icat", str(p), str(inode)], timeout=_timeout(b), max_output=b.max_output_bytes)
-    # icat text mode may mangle binary; prefer raw bytes via subprocess capture is out of scope:
-    # store tool output text bounded as artifact for review.
+    # Byte-faithful capture: never round-trip binary through text decode/encode.
+    _rc, raw = run_tool_bytes(["icat", str(p), str(inode)], timeout=_timeout(b), max_output=2000000)
     try:
-        dest.write_bytes(txt.encode("utf-8", "ignore")[:2000000])
+        dest.write_bytes(raw[:2000000])
         art = artifact_for(str(dest), kind="extracted", source=f"icat:{inode}", depth=1)
         art.source_artifact = str(image)
-        return txt[:4000] or "(no output)", art
+        preview = raw[:4000].decode("utf-8", "ignore").strip()
+        return preview or f"(binary {len(raw)} bytes saved to {dest})", art
     except OSError as e:
         return f"icat save failed: {e}", None
 

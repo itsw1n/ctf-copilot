@@ -46,10 +46,34 @@ def _persist_to_workspace(path, findings, artifacts, workspace) -> tuple[list, o
     """
     import re
     import shutil
+    import hashlib
     from ..analysis.models import Artifact, SolveReport
     from ..analysis.runner import artifact_for
     ws = Path(str(workspace))
     ws.mkdir(parents=True, exist_ok=True)
+
+    def _sha(p: Path) -> str | None:
+        try:
+            h = hashlib.sha256()
+            with open(p, "rb") as f:
+                for chunk in iter(lambda: f.read(1048576), b""):
+                    h.update(chunk)
+            return h.hexdigest()
+        except OSError:
+            return None
+
+    def _find_same(digest: str | None) -> Path | None:
+        if not digest:
+            return None
+        try:
+            for f in ws.iterdir():
+                if f.is_file() and f.name.startswith("artifact-"):
+                    if _sha(f) == digest:
+                        return f
+        except OSError:
+            pass
+        return None
+
     persisted: list[Artifact] = []
     index = 0
     for art in (artifacts or []):
@@ -62,7 +86,23 @@ def _persist_to_workspace(path, findings, artifacts, workspace) -> tuple[list, o
         # skip copying the workspace dir into itself
         try:
             if ws.resolve() in [src.resolve(), *src.resolve().parents] or src.resolve().parent == ws.resolve() and src.name.startswith("artifact-"):
-                pass
+                continue
+        except Exception:
+            pass
+        # idempotent rescan: reuse existing identical artifact instead of duplicating
+        try:
+            digest = _sha(src)
+            dup = _find_same(digest)
+            if dup is not None:
+                try:
+                    new_art = artifact_for(str(dup), kind=getattr(art, "kind", "extracted"),
+                                           source=getattr(art, "source", "triage"),
+                                           depth=getattr(art, "depth", 0) or 0)
+                    new_art.source_artifact = getattr(art, "source_artifact", "") or str(path)
+                    persisted.append(new_art)
+                except Exception:
+                    pass
+                continue
         except Exception:
             pass
         index += 1
@@ -70,8 +110,28 @@ def _persist_to_workspace(path, findings, artifacts, workspace) -> tuple[list, o
         dest = ws / f"artifact-{index:03d}-{safe_base}"
         n = 0
         while dest.exists():
+            # same content already at candidate name -> reuse, no duplication
+            try:
+                if _sha(dest) == _sha(src):
+                    break
+            except Exception:
+                pass
             n += 1
             dest = ws / f"artifact-{index:03d}-{n}-{safe_base}"
+        if dest.exists():
+            try:
+                if _sha(dest) == _sha(src):
+                    try:
+                        new_art = artifact_for(str(dest), kind=getattr(art, "kind", "extracted"),
+                                               source=getattr(art, "source", "triage"),
+                                               depth=getattr(art, "depth", 0) or 0)
+                        new_art.source_artifact = getattr(art, "source_artifact", "") or str(path)
+                        persisted.append(new_art)
+                    except Exception:
+                        pass
+                    continue
+            except Exception:
+                pass
         try:
             shutil.copy2(src, dest)
         except OSError:
@@ -89,16 +149,34 @@ def _persist_to_workspace(path, findings, artifacts, workspace) -> tuple[list, o
         try:
             src = Path(str(path))
             if src.is_file():
-                index += 1
-                safe_base = re.sub(r"[^A-Za-z0-9._-]", "_", src.name) or "file"
-                dest = ws / f"artifact-{index:03d}-{safe_base}"
-                while dest.exists():
+                dup = _find_same(_sha(src))
+                if dup is not None:
+                    try:
+                        new_art = artifact_for(str(dup), kind="file", source="triage", depth=0)
+                        new_art.source_artifact = str(path)
+                        persisted.append(new_art)
+                    except Exception:
+                        pass
+                else:
                     index += 1
+                    safe_base = re.sub(r"[^A-Za-z0-9._-]", "_", src.name) or "file"
                     dest = ws / f"artifact-{index:03d}-{safe_base}"
-                shutil.copy2(src, dest)
-                new_art = artifact_for(str(dest), kind="file", source="triage", depth=0)
-                new_art.source_artifact = str(path)
-                persisted.append(new_art)
+                    while dest.exists():
+                        try:
+                            if _sha(dest) == _sha(src):
+                                break
+                        except Exception:
+                            pass
+                        index += 1
+                        dest = ws / f"artifact-{index:03d}-{safe_base}"
+                    try:
+                        if not (dest.exists() and _sha(dest) == _sha(src)):
+                            shutil.copy2(src, dest)
+                        new_art = artifact_for(str(dest), kind="file", source="triage", depth=0)
+                        new_art.source_artifact = str(path)
+                        persisted.append(new_art)
+                    except OSError:
+                        pass
         except Exception:
             pass
     else:
