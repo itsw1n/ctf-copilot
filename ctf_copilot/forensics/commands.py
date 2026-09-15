@@ -37,16 +37,134 @@ def register(sub):
     z=sp.add_parser('hex',help='Show first bytes as hex',description='Use to inspect file signatures/magic bytes manually.'); z.add_argument('path'); z.add_argument('--bytes',type=int,default=256); z.set_defaults(fn=lambda a: print(Path(a.path).read_bytes()[:max(1,min(a.bytes,4096))].hex(' ')))
     z=sp.add_parser('evidence',help='Correlate magic bytes, embedded data and clue paths',description='Explains signature mismatches, embedded files, encoded text, and relevant next tools.'); z.add_argument('path'); z.set_defaults(fn=lambda a: print(evidence(a.path)))
 
+def _persist_to_workspace(path, findings, artifacts, workspace) -> tuple[list, object | None]:
+    """Copy triage artifacts flat into workspace dir + save solve-report.json.
+
+    Returns (persisted_artifacts, report_path). Collision-safe artifact-XXX
+    names mirror shared/archives._copy_to_workspace. Parent links preserved
+    via Artifact.source_artifact.
+    """
+    import re
+    import shutil
+    from ..analysis.models import Artifact, SolveReport
+    from ..analysis.runner import artifact_for
+    ws = Path(str(workspace))
+    ws.mkdir(parents=True, exist_ok=True)
+    persisted: list[Artifact] = []
+    index = 0
+    for art in (artifacts or []):
+        try:
+            src = Path(art.path)
+        except Exception:
+            continue
+        if not src.is_file() or src.is_symlink():
+            continue
+        # skip copying the workspace dir into itself
+        try:
+            if ws.resolve() in [src.resolve(), *src.resolve().parents] or src.resolve().parent == ws.resolve() and src.name.startswith("artifact-"):
+                pass
+        except Exception:
+            pass
+        index += 1
+        safe_base = re.sub(r"[^A-Za-z0-9._-]", "_", src.name) or "file"
+        dest = ws / f"artifact-{index:03d}-{safe_base}"
+        n = 0
+        while dest.exists():
+            n += 1
+            dest = ws / f"artifact-{index:03d}-{n}-{safe_base}"
+        try:
+            shutil.copy2(src, dest)
+        except OSError:
+            continue
+        try:
+            new_art = artifact_for(str(dest), kind=getattr(art, "kind", "extracted"),
+                                   source=getattr(art, "source", "triage"),
+                                   depth=getattr(art, "depth", 0) or 0)
+        except Exception:
+            continue
+        new_art.source_artifact = getattr(art, "source_artifact", "") or str(path)
+        persisted.append(new_art)
+    # Ensure at least the original input is preserved (covers pipeline temp-staging cleanup).
+    if not persisted:
+        try:
+            src = Path(str(path))
+            if src.is_file():
+                index += 1
+                safe_base = re.sub(r"[^A-Za-z0-9._-]", "_", src.name) or "file"
+                dest = ws / f"artifact-{index:03d}-{safe_base}"
+                while dest.exists():
+                    index += 1
+                    dest = ws / f"artifact-{index:03d}-{safe_base}"
+                shutil.copy2(src, dest)
+                new_art = artifact_for(str(dest), kind="file", source="triage", depth=0)
+                new_art.source_artifact = str(path)
+                persisted.append(new_art)
+        except Exception:
+            pass
+    else:
+        # If pipeline cleaned temp staging, re-extract archive content flat into workspace.
+        try:
+            from ..shared import archives as _A
+            from ..shared.files import magic as _magic
+            head = b""
+            try:
+                head = Path(str(path)).read_bytes()[:32]
+            except OSError:
+                head = b""
+            low = str(path).lower()
+            looks_archive = _magic(head).lower().find("archive") >= 0 or low.endswith(
+                (".zip", ".tar", ".tgz", ".tar.gz", ".gz", ".bz2", ".xz", ".7z", ".rar"))
+            has_extracted = any(getattr(a, "kind", "") == "extracted" for a in persisted)
+            if looks_archive and not has_extracted:
+                try:
+                    from ..analysis.budget import AnalysisBudget as _B
+                    _b = _B.named("balanced")
+                except Exception:
+                    _b = None
+                ok, _msg, _arts = _A.extract_with_artifacts(str(path), str(ws), budget=_b, parent=str(path))
+                for a in (_arts or []):
+                    # extract_with_artifacts already wrote flat artifact-XXX files into ws;
+                    # relocate bookkeeping to persisted list without re-copying.
+                    try:
+                        p = Path(a.path)
+                        if p.is_file() and ws.resolve() == p.resolve().parent:
+                            persisted.append(a)
+                    except Exception:
+                        continue
+        except Exception:
+            pass
+    # Save solve-report.json with parent links.
+    report_path = None
+    try:
+        flags = [f for fd in (findings or []) for f in (getattr(fd, "flags", []) or [])]
+        status = "incomplete"
+        try:
+            if any(getattr(fd, "status", "") == "solved" for fd in (findings or [])):
+                status = "solved"
+        except Exception:
+            pass
+        report = SolveReport(target=str(path), category="forensics", description="triage",
+                             findings=list(findings or []), artifacts=list(persisted),
+                             flags=flags[:20], status=status, stop_reason="triage complete")
+        report_path = report.save(ws / "solve-report.json")
+    except Exception:
+        report_path = None
+    return persisted, report_path
+
+
 def _triage(path, workspace=None, budget='balanced'):
     try:
         b = AnalysisBudget.named(budget or 'balanced')
     except ValueError:
         b = AnalysisBudget.named('balanced')
     _findings, _arts, render = triage_file(path, budget=b, description="")
-    # workspace currently informational; pipeline extracts to temp staging.
-    # Keep flag for Task 10/11 stability; artifacts live alongside render.
+    # Persist artifacts flat into workspace dir (backward-compat: flag optional).
     if workspace:
-        render += f"\nWorkspace: {workspace}"
+        try:
+            persisted, report_path = _persist_to_workspace(path, _findings, _arts, workspace)
+            render += f"\nWorkspace: {workspace} (artifacts={len(persisted)}" + (f", report={report_path}" if report_path else "") + ")"
+        except Exception as e:
+            render += f"\nWorkspace: {workspace} (persist failed: {e})"
     print(render)
 
 def _strings(path):

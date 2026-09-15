@@ -402,6 +402,83 @@ def _check_staging(staging: Path, b) -> tuple[bool, str, int]:
     return True, "ok", total
 
 
+def _read_capped(fobj, limit: int, chunk: int = 65536) -> tuple[bytes, bool]:
+    """Stream-read up to limit+1 bytes; returns (data, over_limit)."""
+    if limit < 0:
+        limit = 0
+    cap = limit + 1
+    parts: list[bytes] = []
+    total = 0
+    while True:
+        piece = fobj.read(min(chunk, cap - total))
+        if not piece:
+            break
+        parts.append(piece)
+        total += len(piece)
+        if total > limit:
+            # drain no further; signal over-limit without huge alloc
+            return b"".join(parts), True
+    return b"".join(parts), False
+
+
+def _decompress_single_streamed(fmt: str, raw: bytes, limit: int) -> tuple[bytes | None, bool, str]:
+    """Streamed single-file decompress with cap. Returns (data, over_limit, err)."""
+    cap = limit + 1
+    try:
+        if fmt == "gzip":
+            with gzip.GzipFile(fileobj=io.BytesIO(raw)) as gf:
+                data, over = _read_capped(gf, limit)
+                return data, over, ""
+        if fmt == "bzip2":
+            dec = bz2.BZ2Decompressor()
+            out = bytearray()
+            step = 65536
+            pos = 0
+            while pos < len(raw):
+                try:
+                    piece = dec.decompress(raw[pos:pos + step], cap - len(out))
+                except Exception as e:
+                    return None, False, str(e)
+                out.extend(piece)
+                pos += step
+                if len(out) > limit:
+                    return bytes(out), True, ""
+                if dec.eof:
+                    break
+            # flush remainder within cap
+            while not dec.eof:
+                try:
+                    piece = dec.decompress(b"", cap - len(out))
+                except Exception:
+                    break
+                if not piece:
+                    break
+                out.extend(piece)
+                if len(out) > limit:
+                    return bytes(out), True, ""
+            return bytes(out), False, ""
+        # xz / lzma
+        dec = lzma.LZMADecompressor()
+        out = bytearray()
+        step = 65536
+        pos = 0
+        while pos < len(raw):
+            try:
+                piece = dec.decompress(raw[pos:pos + step], cap - len(out))
+            except Exception as e:
+                return None, False, str(e)
+            if piece:
+                out.extend(piece)
+            pos += step
+            if len(out) > limit:
+                return bytes(out), True, ""
+            if dec.eof:
+                break
+        return bytes(out), False, ""
+    except Exception as e:
+        return None, False, str(e)
+
+
 def _extract_zip(path: str, entries: list[dict], outdir: str, password, b, depth, parent) -> tuple[bool, str, list]:
     staging = Path(tempfile.mkdtemp(prefix="ctf-staging-"))
     try:
@@ -418,10 +495,12 @@ def _extract_zip(path: str, entries: list[dict], outdir: str, password, b, depth
                     return False, f"rejected: unsafe entry {info.filename!r} (path traversal)", []
                 dest.parent.mkdir(parents=True, exist_ok=True)
                 try:
-                    data = z.read(info, pwd=password.encode() if password else None)
+                    pwd = password.encode() if password else None
+                    with z.open(info, pwd=pwd) as fobj:
+                        data, over = _read_capped(fobj, b.max_file_bytes)
                 except RuntimeError as e:
                     return False, f"rejected: need password ({e})", []
-                if len(data) > b.max_file_bytes:
+                if over:
                     return False, f"rejected: entry {info.filename!r} actual size exceeds single-file limit", []
                 dest.write_bytes(data)
         ok, reason, _total = _check_staging(staging, b)
@@ -455,8 +534,8 @@ def _extract_tar(path: str, entries: list[dict], outdir: str, password, b, depth
                 if f is None:
                     continue
                 dest.parent.mkdir(parents=True, exist_ok=True)
-                data = f.read()
-                if len(data) > b.max_file_bytes:
+                data, over = _read_capped(f, b.max_file_bytes)
+                if over:
                     return False, f"rejected: entry {m.name!r} actual size exceeds single-file limit", []
                 dest.write_bytes(data)
         ok, reason, _total = _check_staging(staging, b)
@@ -475,16 +554,10 @@ def _extract_tar(path: str, entries: list[dict], outdir: str, password, b, depth
 def _extract_single(path: str, entry: dict, outdir: str, b, depth, parent) -> tuple[bool, str, list]:
     fmt = entry.get("format", "gzip")
     raw = Path(path).read_bytes()
-    try:
-        if fmt == "gzip":
-            data = gzip.decompress(raw)
-        elif fmt == "bzip2":
-            data = bz2.decompress(raw)
-        else:
-            data = lzma.decompress(raw)
-    except Exception as e:
-        return False, f"rejected: decompress failed ({e})", []
-    if len(data) > b.max_file_bytes:
+    data, over, err = _decompress_single_streamed(fmt, raw, b.max_file_bytes)
+    if data is None:
+        return False, f"rejected: decompress failed ({err})", []
+    if over:
         return False, f"rejected: decompressed size exceeds single-file limit {b.max_file_bytes}", []
     staging = Path(tempfile.mkdtemp(prefix="ctf-staging-"))
     try:
