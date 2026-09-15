@@ -6,6 +6,13 @@ from typing import Any
 from .normalization import parse_bytes, readable
 from ..shared.flags import find_flags
 
+try:
+    from Crypto.Cipher import AES, DES, DES3
+    from Crypto.Util.Padding import pad, unpad
+except ImportError:  # pragma: no cover - PyCryptodome is optional at import time
+    AES = DES = DES3 = None  # type: ignore[assignment]
+    pad = unpad = None  # type: ignore[assignment]
+
 
 @dataclass(frozen=True)
 class BlockResult:
@@ -25,11 +32,8 @@ def repeated_blocks(value: str | bytes, block_size: int = 16, fmt: str = "auto")
 def decrypt(ciphertext: str, algorithm: str, mode: str, key: str,
             iv: str | None = None, nonce: str | None = None,
             input_format: str = "auto", key_format: str = "auto") -> BlockResult:
-    try:
-        from Crypto.Cipher import AES, DES, DES3
-        from Crypto.Util.Padding import unpad
-    except ImportError as exc:
-        raise RuntimeError("PyCryptodome is required for block-cipher decryption.") from exc
+    if AES is None or DES is None or DES3 is None or unpad is None or pad is None:
+        raise RuntimeError("PyCryptodome is required for block-cipher decryption.")
     algorithms: dict[str, Any] = {"aes": AES, "des": DES, "3des": DES3}
     if algorithm not in algorithms:
         raise ValueError("algorithm must be aes, des, or 3des")
@@ -65,7 +69,7 @@ def decrypt(ciphertext: str, algorithm: str, mode: str, key: str,
         except ValueError:
             pass
     check = module.new(key_bytes, modes[mode], **kwargs).encrypt(
-        plaintext if mode == "ctr" else (__import__("Crypto.Util.Padding", fromlist=["pad"]).pad(plaintext, module.block_size) if unpadded else plaintext)
+        plaintext if mode == "ctr" else (pad(plaintext, module.block_size) if unpadded else plaintext)
     )
     return BlockResult(algorithm, mode, plaintext, unpadded, check == raw)
 
