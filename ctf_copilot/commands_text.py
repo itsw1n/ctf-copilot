@@ -111,36 +111,10 @@ Rule of thumb:
   Unknown file -> ctf forensics triage <file>
   Unknown binary -> ctf reverse triage <binary> + ctf pwn triage <binary>
 """.strip()
-try:
-    from importlib.metadata import version as _pkg_version
-except ImportError:
-    _pkg_version = None  # type: ignore
+from . import __version__
 
 def _app_version() -> str:
-    try:
-        from pathlib import Path
-        pyproject = Path(__file__).resolve().parent.parent / "pyproject.toml"
-        text = pyproject.read_text(encoding="utf-8", errors="replace")
-        try:
-            import tomllib
-            data = tomllib.loads(text)
-            v = data.get("project", {}).get("version", "")
-            if v:
-                return "v" + str(v)
-        except Exception:
-            pass
-        import re
-        m = re.search(r'(?m)^version\s*=\s*["\']([^"\']+)["\']', text)
-        if m:
-            return "v" + m.group(1).strip()
-    except Exception:
-        pass
-    try:
-        if _pkg_version is None:
-            return "v1.0.0"
-        return "v" + _pkg_version("ctf-copilot")
-    except Exception:
-        return "v1.0.0"
+    return "v" + __version__
 
 COMMAND_SECTIONS: list[tuple[str, list[tuple[str, str]]]] = [
     ("START HERE", [

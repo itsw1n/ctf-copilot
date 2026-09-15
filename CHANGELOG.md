@@ -1,5 +1,10 @@
 # Changelog
 
+## v1.0.1
+
+- Made `ctf_copilot.__version__` the single source for package and command-guide versions.
+- Added an MIT license and refreshed the README with release, platform, Python, and license badges.
+
 ## v1.0.0
 
 - Added recursive forensic evidence checks, safe archive helpers, stego/metadata handoffs, and bounded flag discovery.

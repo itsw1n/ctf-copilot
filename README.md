@@ -1,13 +1,27 @@
-# CTF Copilot v1.0
+# CTF Copilot
 
-CTF Copilot is a beginner-friendly CLI for **authorized CTF challenges and practice labs**. It organizes repeatable first-pass work by category while relying on proven Kali tools where appropriate.
+[![Latest release tag](https://img.shields.io/github/v/tag/itsw1n/ctf-copilot?label=release)](https://github.com/itsw1n/ctf-copilot/tags)
+[![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-3776AB?logo=python&logoColor=white)](pyproject.toml)
+[![Platform Kali/Linux](https://img.shields.io/badge/platform-Kali%20%2F%20Linux-557C94?logo=linux&logoColor=white)](#safe-install-on-kalilinux)
+[![License MIT](https://img.shields.io/badge/license-MIT-yellow.svg)](LICENSE)
 
-The design goal is not “magically solve every CTF.” It is:
+CTF Copilot is a beginner-friendly command-line assistant for **authorized CTF challenges and practice labs**. It turns a blank starting point into evidence, practical next steps, and repeatable workflows—without pretending that every challenge has a one-command solution.
 
-> classify the challenge → run useful first checks → surface evidence → recommend the next action.
+```text
+classify → collect evidence → test the lowest-cost useful action → explain what to do next
+```
 
-It is designed to automate common **easy and medium** CTF first-pass work, not
-to guarantee a solve for every custom or advanced challenge.
+It is aimed at common **easy and medium** challenge patterns. Hard, custom, or multi-stage challenges still need your reasoning; the tool should make that reasoning faster and more organized.
+
+## What it helps with
+
+| Category | First-pass help |
+| --- | --- |
+| Crypto | Encodings, Caesar/ROT, XOR, RSA checks, supplied encryption-source inspection |
+| Forensics | File triage, strings, metadata, archives, embedded data, stego and PCAP handoffs |
+| Web | Passive same-origin mapping, forms, scripts, endpoints, parameters, authorized tests |
+| Reverse / Pwn | Binary triage, imports, functions, protections, and next-step hints |
+| Workflow | Workspaces, reports, flag scans, tool doctor, and beginner-oriented command help |
 
 ## Safe install on Kali/Linux
 
@@ -34,6 +48,19 @@ ctf tools --doctor
 ```
 
 to show which command-line helpers are available.
+
+## Start in 30 seconds
+
+```bash
+# See the guided command list
+ctf commands
+
+# Start with an unknown file, URL, archive, or encoded string
+ctf solve <target>
+
+# See the evidence report again later, when using a workspace
+ctf report <workspace-name>
+```
 
 ## Windows
 
@@ -87,7 +114,7 @@ ctf report zip-01
 The report explains the tool used, what it found, why it matters, and the next
 suggested command.
 
-## v1.0 follow-up commands
+## Focused follow-up commands
 
 Use these only when `ctf solve` or the challenge evidence points you there:
 
@@ -180,3 +207,7 @@ CTF Copilot may orchestrate external tools such as `file`, `strings`, `exiftool`
 ## Safety
 
 Use active web/network testing only on CTF targets, systems you own, or systems you are explicitly authorized to test. Unknown binaries should stay inside your CTF VM.
+
+## License
+
+Released under the [MIT License](LICENSE).
