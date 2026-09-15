@@ -27,12 +27,7 @@ def run_entry(entry):
             return analyze_target(files[0])
         if gid == "B":
             desc = entry.get("description", "")
-            out = analyze_target(files[0], description=desc)
-            # append hint sidecar content so b05 guidance is explicit
-            for f in files[1:]:
-                if f.endswith(".hint"):
-                    out += "\nHINT FILE: " + Path(f).read_text(errors="replace").strip()
-            return out
+            return analyze_target(files[0], description=desc)
         if gid == "C":
             eid = entry["id"]
             if eid == "c05":
@@ -91,10 +86,7 @@ def classify(entry, output):
     pat = entry.get("flag_pattern")
     if pat and re.search(pat, output):
         return "solved"
-    # generic flag in a result context also counts as solved for positives
-    if entry["id"] not in NEGATIVES and entry.get("flag_pattern") is None:
-        pass
-    # decisive signals: verified decryption, ECB hypothesis, crib-drag flag substring, hint guidance, --iv error
+    # decisive signals: verified decryption, ECB hypothesis, --iv error guidance
     if "Verification: passed" in output:
         return "decisive-next-step"
     if "ECB hypothesis" in output or "strongly supports ECB" in output:
@@ -103,8 +95,6 @@ def classify(entry, output):
             return "detected"
         return "decisive-next-step"
     if "CBC mode requires --iv" in output or "BLOCK-CIPHER ERROR GUIDANCE" in output:
-        return "decisive-next-step"
-    if entry["id"] == "b05" and "HINT FILE" in output:
         return "decisive-next-step"
     # solved via result-contained flag even without explicit pattern (xor crib-drag partial)
     flags = find_flags(output)
@@ -138,6 +128,7 @@ class BenchmarkTests(unittest.TestCase):
         counts = {"solved": 0, "decisive-next-step": 0, "detected": 0, "inconclusive": 0, "missed": 0}
         rows = []
         errors = []
+        mismatches = []
         for entry in manifest:
             out = run_entry(entry)
             if out.startswith("RUNNER EXCEPTION"):
@@ -152,6 +143,10 @@ class BenchmarkTests(unittest.TestCase):
             # negatives must not validate a flag
             if entry["id"] in NEGATIVES:
                 self.assertEqual(find_flags(out), [], f"negative {entry['id']} must not validate flags, got {find_flags(out)}")
+            else:
+                # positives must match manifest expectation exactly (honesty check)
+                if status != entry.get("expect"):
+                    mismatches.append(f"{entry['id']}: expect={entry.get('expect')} got={status}")
             rows.append((entry["id"], entry.get("expect"), status))
         elapsed = time.time() - start
         detected = counts.get("solved", 0) + counts.get("decisive-next-step", 0) + counts.get("detected", 0)
@@ -163,6 +158,7 @@ class BenchmarkTests(unittest.TestCase):
         for eid, expect, got in rows:
             print(f"  {eid}: expect={expect} got={got}")
         self.assertEqual(errors, [], f"runner exceptions: {errors}")
+        self.assertEqual(mismatches, [], f"positive expectation mismatches: {mismatches}")
         self.assertLess(elapsed, 120, f"runtime {elapsed:.1f}s exceeds 120s budget")
         self.assertGreaterEqual(detected, 28, f"need >=28/32 detected, got {detected} counts={counts}")
         self.assertGreaterEqual(solved_or_decisive, 24, f"need >=24 solved-or-decisive, got {solved_or_decisive} counts={counts}")
