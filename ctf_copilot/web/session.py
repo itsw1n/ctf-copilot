@@ -298,6 +298,14 @@ class WebSession:
             url = urllib.parse.urlunsplit((parts.scheme, parts.netloc, parts.path, urllib.parse.urlencode(q), parts.fragment))
         return self._do("GET", url, **kw)
 
+    def head(self, url: str, **kw: Any) -> WebResponse:
+        """Safe HEAD fetch (same-origin + budget enforced)."""
+        return self._do("HEAD", url, **kw)
+
+    def options(self, url: str, **kw: Any) -> WebResponse:
+        """Safe OPTIONS fetch (same-origin + budget enforced)."""
+        return self._do("OPTIONS", url, **kw)
+
     def post_form(self, url: str, data: dict[str, Any] | None = None, csrf_preserve: bool = True, **kw: Any) -> WebResponse:
         payload = dict(data or {})
         if csrf_preserve:

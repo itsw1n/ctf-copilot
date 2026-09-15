@@ -9,6 +9,7 @@ import json
 import re
 import urllib.parse
 from html.parser import HTMLParser
+from http.cookies import SimpleCookie
 from typing import Any
 
 from .endpoints import extract
@@ -99,27 +100,53 @@ def _redact_secret(value: str) -> str:
     return v[:4] + "***"
 
 
+def _split_joined_set_cookie(line: str) -> list[str]:
+    """Split comma-joined Set-Cookie values without breaking Expires dates."""
+    # Split on commas that start a new cookie (token=...). The comma inside
+    # `Expires=Wed, 21 Oct ...` is followed by a date, not `token=`, so it survives.
+    return [c.strip() for c in re.split(
+        r',\s*(?=[A-Za-z0-9_!#$%&\'*+\-.^`|~]+\s*=)', line) if c.strip()]
+
+
 def _parse_set_cookie(headers: dict[str, str]) -> list[tuple[str, str, dict[str, str]]]:
     out: list[tuple[str, str, dict[str, str]]] = []
     raw_vals: list[str] = []
     for k, v in (headers or {}).items():
         if str(k).lower() == "set-cookie":
-            raw_vals.append(str(v))
+            if isinstance(v, (list, tuple)):
+                raw_vals.extend(str(x) for x in v)
+            else:
+                raw_vals.append(str(v))
     for raw in raw_vals:
-        # naive split: one Set-Cookie per header in our stack; handle commas conservatively
-        # requests joins multiple; we still parse first pair + attrs
-        parts = [p.strip() for p in raw.split(";")]
-        if not parts:
-            continue
-        name, _, val = parts[0].partition("=")
-        name = name.strip()
-        if not name:
-            continue
-        attrs: dict[str, str] = {}
-        for p in parts[1:]:
-            ak, _, av = p.partition("=")
-            attrs[ak.strip().lower()] = av.strip() if av else "true"
-        out.append((name, val.strip(), attrs))
+        for line in str(raw).splitlines() or [str(raw)]:
+            line = line.strip()
+            if not line:
+                continue
+            for chunk in _split_joined_set_cookie(line):
+                parts = [p.strip() for p in chunk.split(";")]
+                if not parts:
+                    continue
+                name, _, val = parts[0].partition("=")
+                name = name.strip().strip('"')
+                if not name:
+                    continue
+                val = val.strip().strip('"')
+                # Validate with SimpleCookie so garbage chunks are skipped.
+                try:
+                    jar = SimpleCookie()
+                    jar.load(f"{name}={val}")
+                    if name not in jar:
+                        continue
+                except Exception:
+                    continue
+                attrs: dict[str, str] = {}
+                for p in parts[1:]:
+                    ak, _, av = p.partition("=")
+                    ak = ak.strip().lower()
+                    if not ak:
+                        continue
+                    attrs[ak] = av.strip().strip('"') if av else "true"
+                out.append((name, val.strip(), attrs))
     return out
 
 
@@ -156,7 +183,13 @@ def _try_get(sess: Any, url: str):
 
 
 def analyze(url: str, session: Any = None, crawl: int = 0, budget: Any = None) -> dict[str, Any]:
-    """Passive analysis via shared WebSession. GET-only, same-origin, bounded."""
+    """Passive analysis via shared WebSession. GET-only, same-origin, bounded.
+
+    Budget enforcement: ``WebSession.max_requests`` is the enforcer. Every
+    recorded request appends to ``session.ledger`` and ``_require_budget``
+    raises ``RuntimeError`` once ``len(ledger) >= max_requests``. Callers may
+    pass a shared ``budget`` counter, but caps are enforced by ``max_requests``.
+    """
     from .session import WebSession as _WS
 
     own_session = False
