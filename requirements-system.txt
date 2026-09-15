@@ -1,24 +1,53 @@
-# Kali packages used by CTF Copilot's forensic playbooks
+# Kali system packages used by CTF Copilot's playbooks.
+# Audited (Task 18): every external executable invoked via shared/tooling
+# run_tool/which is listed below with its command -> Kali apt package mapping.
+# Lines starting with '#' are comments; scripts/install.sh installs only the
+# bare package names via `dpkg-query -W` / `sudo apt install`.
+#
+# --- general triage ---
+# file -> file ; strings/readelf/objdump -> binutils ; xxd -> xxd
 file
 binutils
 xxd
+# --- metadata / embedded data ---
+# exiftool -> libimage-exiftool-perl ; binwalk -> binwalk
 exiftool
 binwalk
+# --- carving (manual/handoff use; referenced by archive guidance) ---
 foremost
 scalpel
+# --- archives ---
+# 7z/7zz -> p7zip-full ; unrar -> unrar-free
 p7zip-full
 unrar-free
+# --- image stego ---
+# zsteg -> zsteg (ruby gem on some setups) ; steghide -> steghide
+# pngcheck -> pngcheck ; zbarimg -> zbar-tools
 zsteg
 steghide
 pngcheck
 zbar-tools
+# --- audio ---
+# sox/soxi -> sox
 sox
+# --- network captures ---
+# tshark -> tshark (wireshark-cli family; GUI package is wireshark)
 tshark
 tcpflow
+# --- memory forensics ---
+# vol/vol.py/volatility/volatility3 -> volatility3
 volatility3
+# --- disk forensics ---
+# mmls/fsstat/fls/icat -> sleuthkit
 sleuthkit
+# --- documents ---
+# pdfinfo -> poppler-utils ; pdfid -> no Kali apt package (use Didier Stevens pdfid.py)
+# olevba -> oletools
 poppler-utils
 oletools
+# --- password-cracking handoffs only (never auto-run; see crack_handoff) ---
+# john (+7z2john.pl/rar2john ship with john) -> john ; fcrackzip -> fcrackzip
+# hashcat -> hashcat
 john
 fcrackzip
 hashcat

@@ -1,7 +1,10 @@
-pwntools
+# Python deps. Keep in sync with pyproject.toml [project] dependencies
+# (required runtime: requests, pycryptodome) and [project.optional-dependencies]
+# (everything else below is optional; none is imported at startup).
 requests
-beautifulsoup4
 pycryptodome
+beautifulsoup4
+pwntools
 z3-solver
 python-magic
 pyzipper

@@ -8,7 +8,17 @@ dynamic=["version"]
 description="Modular beginner-friendly CTF first-pass assistant for Kali with evidence-driven analysis"
 readme="README.md"
 requires-python=">=3.10"
-dependencies=[]
+# Required runtime deps (mirrored in requirements.txt; keep in sync).
+# requests: web session/fetch; pycryptodome: block-cipher + RSA PEM paths.
+# Everything else from requirements.txt stays optional (see [project.optional-dependencies]).
+dependencies=["requests", "pycryptodome"]
+
+[project.optional-dependencies]
+# Optional helpers; none are imported at startup. Install only if needed.
+analysis=["z3-solver"]
+web-extra=["beautifulsoup4"]
+forensics-extra=["python-magic", "pyzipper"]
+pwn-extra=["pwntools"]
 
 [tool.setuptools.dynamic]
 version={attr="ctf_copilot.__version__"}

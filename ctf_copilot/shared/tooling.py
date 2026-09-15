@@ -21,14 +21,19 @@ def run_tool_bytes(argv,timeout=45,max_output=2000000):
     except subprocess.TimeoutExpired: return 124,b''
     except OSError: return 127,b''
 
+# Audited (Task 18): every name here is actually invoked via run_tool/which
+# (or referenced by a cracking handoff, marked below). See
+# requirements-system.txt for the command -> Kali apt package mapping.
 GROUPS={
-'GENERAL':['file','strings','xxd','curl','wget','jq','openssl','7z','git','python3','pipx'],
-'WEB':['nmap','ffuf','gobuster','sqlmap','nikto','whatweb'],
-'CRYPTO':['openssl','john','hashcat','python3'],
-'FORENSICS':['exiftool','binwalk','wireshark','tshark','foremost','steghide','zsteg','pdfinfo'],
-'REVERSE':['ghidra','gdb','objdump','readelf','radare2','rizin'],
-'PWN':['gdb','checksec','ROPgadget','ropper','pwn'],
-'NETWORK':['nmap','dig','nslookup','nc','socat','tcpdump','wireshark'],
+'GENERAL':['file','strings','7z','7zz','python3'],
+'WEB':['nmap'],
+# CRYPTO entries are handoff-only: crack_handoff prints john/hashcat/fcrackzip
+# commands for the user to run manually; they are never auto-executed.
+'CRYPTO':['john','hashcat','fcrackzip','python3'],
+'FORENSICS':['file','strings','exiftool','binwalk','pngcheck','zsteg','zbarimg','steghide','tshark','pdfinfo','pdfid','olevba','mmls','fsstat','fls','icat','vol','volatility3','sox','soxi','mediainfo','7z','7zz'],
+'REVERSE':['file','strings','readelf','objdump','checksec'],
+'PWN':['checksec','ROPgadget','readelf','objdump'],
+'NETWORK':['nmap','dig','whois'],
 }
 
 def summarize_tools():
