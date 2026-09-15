@@ -1,8 +1,27 @@
+"""Deprecated shim (Phase 9, Task 15). Use WebSession + differential instead.
+
+Kept for import compatibility only; no active probe imports this module.
+"""
 from __future__ import annotations
-import urllib.error, urllib.request
-UA='CTF-Copilot/0.7 authorized-security-test'
-def request(url,method='GET',timeout=8):
-    req=urllib.request.Request(url,method=method,headers={'User-Agent':UA})
-    try:
-        with urllib.request.urlopen(req,timeout=timeout) as r: return r.status,dict(r.headers.items()),r.read(700_000).decode(r.headers.get_content_charset() or 'utf-8','replace')
-    except urllib.error.HTTPError as e: return e.code,dict(e.headers.items()),e.read(700_000).decode(e.headers.get_content_charset() or 'utf-8','replace')
+
+from typing import Any
+
+from ..session import WebSession
+from .. import differential as diff
+
+UA = "CTF-Copilot/1.0 authorized-security-test"
+
+
+def request(url: str, method: str = "GET", timeout: float = 8):
+    """Compat helper delegating to WebSession (GET/HEAD/OPTIONS only)."""
+    sess = WebSession(base_url=url, timeout=timeout)
+    upper = (method or "GET").upper()
+    if upper == "GET":
+        r = sess.get(url)
+    elif upper == "HEAD":
+        r = sess.head(url)
+    elif upper == "OPTIONS":
+        r = sess.options(url)
+    else:
+        raise ValueError(f"unsafe method blocked: {method!r}")
+    return r.status, dict(r.headers), r.text
