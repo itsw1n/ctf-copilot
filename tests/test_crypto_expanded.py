@@ -140,6 +140,15 @@ class ExpandedCryptoTests(unittest.TestCase):
         self.assertTrue(any("factor" in r.technique.lower() or "private-key" in r.technique.lower() for r in results))
         self.assertFalse(any(r.technique == "modulus primality check" for r in results))
 
+    def test_vigenere_cli_clamped_to_20(self):
+        from ctf_copilot.cli import build_parser
+
+        parser = build_parser()
+        ns = parser.parse_args(["crypto", "vigenere", "HELLOHOWAREYOUVERYLONGTEXTEXTRA"])
+        self.assertEqual(ns.max_key_length, 20)
+        with self.assertRaises(SystemExit):
+            parser.parse_args(["crypto", "vigenere", "HELLOHOWAREYOUVERYLONGTEXTEXTRA", "--max-key-length", "40"])
+
 
 if __name__ == "__main__":
     unittest.main()
