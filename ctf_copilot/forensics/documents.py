@@ -34,6 +34,13 @@ def _finding(category, tool, observation, confidence=0.5, why="", actions=None,
 
 URL_RE = re.compile(rb"https?://[^\s'\"<>]{4,120}")
 
+OLE_MAGIC = b"\xd0\xcf\x11\xe0"
+# Static macro/VBA keywords scanned in raw OLE bytes (never executed).
+OLE_MACRO_KEYWORDS = (
+    b"autoopen", b"autoclose", b"auto_open", b"document_open",
+    b"workbook_open", b"vba", b"macro", b"olevba",
+)
+
 
 def _pdf_header_scan(data: bytes) -> list[str]:
     notes = []
@@ -111,6 +118,18 @@ def _office_zip_scan(path: Path, data: bytes) -> tuple[list[str], list[str], lis
     return comments[:10], urls[:20], embedded[:20]
 
 
+def _ole_macro_hint(data: bytes) -> list[str]:
+    """Static OLE macro keyword hits from raw bytes. Never executes macros."""
+    low = data.lower()
+    hits: list[str] = []
+    for kw in OLE_MACRO_KEYWORDS:
+        if kw in low:
+            label = kw.decode()
+            if label not in hits:
+                hits.append(label)
+    return hits
+
+
 def analyze(path, budget=None) -> tuple[list, list, str]:
     b = _budget_or_default(budget)
     p = Path(str(path))
@@ -186,6 +205,24 @@ def analyze(path, budget=None) -> tuple[list, list, str]:
                 findings.append(_finding("forensics", "olevba", "olevba: no macro indicators", 0.4,
                                          "static macro scan", [], [], "inconclusive", ["olevba"]))
         comments, urls, embedded = _office_zip_scan(p, data)
+        # Offline OLE-header hint (static only, never exec): non-zip .doc
+        # with macro keywords -> decisive-artifact finding from product.
+        try:
+            _is_zip = zipfile.is_zipfile(p)
+        except Exception:
+            _is_zip = False
+        _is_ole = data.startswith(OLE_MAGIC)
+        _ole_hits: list[str] = []
+        if not _is_zip and (_is_ole or suffix in (".doc", ".xls", ".ppt", ".msg")):
+            _ole_hits = _ole_macro_hint(data[:1_000_000])
+            if _ole_hits:
+                _obs = (f"OLE macro hint: OLE header={'yes' if _is_ole else 'no'}; "
+                        f"macro/VBA keywords ({', '.join(_ole_hits[:8])}) in static scan (never executed)")
+                findings.append(_finding("forensics", "ole-macro-hint", _obs, 0.8,
+                                         "OLE-header + macro keyword static hint (never exec); olevba enhances depth",
+                                         ["never enable macros; inspect VBA source statically with olevba"],
+                                         [], "detected", _ole_hits[:8]))
+                out_lines += ["", "[ole-hint]", _obs]
         if comments:
             findings.append(_finding("forensics", "office-comments", f"comments/notes: {'; '.join(comments[:5])}", 0.7,
                                      "ZIP/XML parse of comment parts", ["review hidden review notes"], [], "detected", comments[:5]))
@@ -197,10 +234,10 @@ def analyze(path, budget=None) -> tuple[list, list, str]:
             findings.append(_finding("forensics", "office-embedded", f"embedded objects: {'; '.join(embedded[:8])}", 0.7,
                                      "OLE/embedded object names in ZIP",
                                      ["carve embedded object; ctf forensics recurse <file>"], [], "detected", embedded[:8]))
-        if not comments and not urls and not embedded:
+        if not comments and not urls and not embedded and not _ole_hits:
             findings.append(_finding("forensics", "office-scan", "no comments/URLs/embedded objects in static ZIP/XML parse", 0.35,
                                      "never executes macros/scripts", ["inspect metadata/strings"], [], "inconclusive", ["static-parse"]))
-        render = "\n".join(out_lines + ["", f"comments={len(comments)} urls={len(urls)} embedded={len(embedded)}"])
+        render = "\n".join(out_lines + ["", f"comments={len(comments)} urls={len(urls)} embedded={len(embedded)} ole_hits={','.join(_ole_hits[:8]) if _ole_hits else '(none)'}" ])
         return findings, artifacts, render
 
     f = _finding("forensics", "documents", "not a recognized PDF/Office document; static scan only", 0.3,

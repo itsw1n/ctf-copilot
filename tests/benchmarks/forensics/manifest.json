@@ -254,7 +254,9 @@
       "f27_office_macro.doc"
     ],
     "expect": "decisive-artifact",
-    "technique": "ole macro static guidance (never exec)"
+    "technique": "ole macro static guidance (never exec)",
+    "tool_gated": true,
+    "note": "OLE-header macro hint decisive offline; olevba enhances depth"
   },
   {
     "id": "f28",

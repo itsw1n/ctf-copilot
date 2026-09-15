@@ -162,7 +162,8 @@ class ForensicsBenchmarkTests(unittest.TestCase):
         self.assertEqual(mismatches, [], f"positive expectation mismatches: {mismatches}")
         self.assertLess(elapsed, 120, f"runtime {elapsed:.1f}s exceeds 120s budget")
         self.assertGreaterEqual(detected, 26, f"need >=26/30 detected, got {detected} counts={counts}")
-        self.assertGreaterEqual(detected, 21, f"need >=21 flag-or-decisive, got {detected} counts={counts}")
+        flag_count = counts["flag"]
+        self.assertGreaterEqual(flag_count, 21, f"need >=21 flag, got {flag_count} counts={counts}")
 
 
 if __name__ == "__main__":
