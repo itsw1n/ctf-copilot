@@ -9,13 +9,38 @@ The design goal is not “magically solve every CTF.” It is:
 It is designed to automate common **easy and medium** CTF first-pass work, not
 to guarantee a solve for every custom or advanced challenge.
 
-## Install on Kali
+## Safe install on Kali/Linux
 
 ```bash
 cd ~/tools/ctf-copilot
-pipx install -e . --force
+./scripts/install.sh
+source .venv/bin/activate
 ctf --help
 ```
+
+The installer uses a project-local Python virtual environment (`.venv`) and
+does not modify your system Python. It also checks every package in
+`requirements-system.txt`. If all required Kali helpers already exist, it does
+not use `sudo`. If any are missing, it prints the exact missing package names
+and uses `sudo apt` to install only those packages from your configured Kali
+repositories.
+
+`sudo` is needed only for system package installation; the `ctf` command never
+runs as root. Review the repository and the package list before running an
+installer on any machine. At the end, the installer runs:
+
+```bash
+ctf tools --doctor
+```
+
+to show which command-line helpers are available.
+
+## Windows
+
+The pure-Python core can run on Windows with Python 3.10+, but the complete
+forensics playbooks depend on Linux/Kali command-line tools. For the full
+experience on a Windows computer, use WSL2 with Kali or Ubuntu and follow the
+Linux install steps above.
 
 ## Learn the commands
 
