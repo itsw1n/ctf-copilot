@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased
+
+- Moved required runtime deps (`requests`, `pycryptodome`) into `pyproject.toml [project] dependencies`; remaining helpers stay optional extras. `requirements.txt` carries a sync header with the same set.
+- Audited `requirements-system.txt`: every invoked external helper now has a command-to-Kali-package mapping comment; `ctf tools --doctor` inventory matches the actually invoked tool set.
+- Limited the beginner command guide to the primary crypto commands (`analyze`, `decode`, `rsa`, `xor`, `xor-repeat`, `xor-crib`, `vigenere`, `block`, `inspect`, `template`); `caesar`/`jwt`/`hash` stay as specialist compat shortcuts.
+- Documented the six primary commands, the `--input`/`--budget`/`--workspace`/`--crawl`/`--confirm-authorized` flags, and measured representative-corpus results in the README.
+- Minor cleanup: removed a duplicate `import re`, fixed an expression-statement append, and made crypto detection web-only for URLs (`solve` routes URLs to the passive web analyzer).
+
 ## v1.0.1
 
 - Made `ctf_copilot.__version__` the single source for package and command-guide versions.

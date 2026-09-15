@@ -80,6 +80,48 @@ ctf web --help
 
 Every category/action includes a short description explaining **what it does and when to use it**.
 
+## Primary commands
+
+Six commands cover the beginner first pass; everything else is a specialist
+follow-up (see `ctf commands` and `ctf <category> --help`):
+
+```bash
+ctf solve <target>            # unknown challenge: classify + safe first pass
+ctf crypto analyze <text>     # unknown encoded/cipher text
+ctf forensics triage <file>   # unknown file: type, metadata, strings, embedded clues
+ctf web analyze <url>         # passive web first pass (add --crawl N for same-origin pages)
+ctf reverse triage <binary>   # binary protections, imports, high-signal strings
+ctf report <workspace>        # show the saved structured report again
+```
+
+Specialist shortcuts stay available but are no longer in the beginner list:
+`ctf crypto caesar`, `ctf crypto jwt`, `ctf crypto hash` (plus `decode`,
+`template`, and the other per-category actions).
+
+Useful flags:
+
+- `ctf solve <target> --input <value-or-file>` (repeatable): related values
+  for RSA/XOR correlation; prefix literal text with `text:`.
+- `--budget fast|balanced|deep`: analysis budget profile (`solve`, forensics triage).
+- `--workspace <name>`: save a structured report (`solve`, forensics triage).
+- `ctf web analyze <url> --crawl N`: bounded same-origin GET-only crawl.
+- `ctf web test <url> --confirm-authorized ...`: controlled active probes;
+  only on CTF/owned/authorized targets.
+
+## Measured corpus results
+
+Representative offline corpora bundled under `tests/benchmarks/`
+(run with `python3 -m unittest discover -s tests`):
+
+- Crypto: supported representative corpus: 29/32 patterns detected, 27/32
+  decisive (solved or decisive next step), not an estimate of arbitrary
+  competition solve rate.
+- Forensics: supported representative corpus: 27/30 patterns detected, 21/30
+  with flag validated, not an estimate of arbitrary competition solve rate.
+- Web: supported representative corpus: 25/25 correct — 21/21 applicable
+  patterns plus 4/4 safety/negative cases (mocked fixtures, ~0.2s) — not an
+  estimate of arbitrary competition solve rate.
+
 ## Main workflow
 
 ```text
