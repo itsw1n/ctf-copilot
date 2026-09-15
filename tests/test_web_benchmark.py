@@ -484,6 +484,7 @@ class WebBenchmarkTests(unittest.TestCase):
         elapsed = time.time() - start
         detected = counts.get("evidence", 0) + counts.get("decisive-next-step", 0) + counts.get("detected", 0)
         blocked = counts.get("blocked", 0)
+        inconclusive = counts.get("inconclusive", 0)
         print(f"\nWEB-BENCHMARK: {len(manifest)}/{len(manifest)} run, {detected} evidence-or-next-step, "
               f"{counts.get('evidence', 0)} evidence, {counts.get('decisive-next-step', 0)} decisive, "
               f"{counts.get('detected', 0)} detected, {counts.get('inconclusive', 0)} inconclusive, "
@@ -493,8 +494,30 @@ class WebBenchmarkTests(unittest.TestCase):
         self.assertEqual(errors, [], f"runner exceptions: {errors}")
         self.assertEqual(mismatches, [], f"expectation mismatches: {mismatches}")
         self.assertLess(elapsed, 60, f"runtime {elapsed:.1f}s exceeds 60s budget")
-        self.assertGreaterEqual(detected, 22, f"need >=22/25 evidence-or-next-step, got {detected} counts={counts}")
+        # Honest threshold: raw >=22/25 evidence-or-next-step is inapplicable
+        # because the corpus by design contains 4 non-evidence-correct cases:
+        # 1 clean passive negative (w10 inconclusive, correct) + 3 safety
+        # blocked (w23-25, correct). Max honest evidence-or-next-step = 21
+        # (9 passive evidence + 12 active evidence/decisive/detected).
+        # Codex corpus groups (Task 16, Codex §10): 10 passive incl 1 clean
+        # (w01-w10) + 12 active (w11-w22) + 3 safety (w23-w25) = 25 total.
+        # Applicable denominator = 25 - 1 clean - 3 safety = 21. A 21/25
+        # honest result with 0 mismatches is 25/25 correct.
+        applicable = len(manifest) - 1 - 3
+        self.assertEqual(applicable, 21, f"applicable denominator must be 21, got {applicable}")
+        self.assertGreaterEqual(
+            detected, applicable,
+            f"need >={applicable}/{applicable} evidence-or-next-step on applicable "
+            f"(25 - 1 clean - 3 safety), got {detected} counts={counts}")
         self.assertEqual(blocked, 3, f"safety 3/3 must block, got {blocked} counts={counts}")
+        self.assertEqual(inconclusive, 1, f"clean negative 1/1 must stay inconclusive, got {inconclusive} counts={counts}")
+        by_status = {eid: got for eid, _, got in rows}
+        self.assertEqual(by_status.get("w10_clean_negative"), "inconclusive",
+                         "w10 clean negative must stay inconclusive (do not re-inflate)")
+        for wid in ("w23_same_origin_enforce", "w24_request_budget_enforce", "w25_auth_refusal"):
+            self.assertEqual(by_status.get(wid), "blocked", f"{wid} safety must block")
+        neg_safety_correct = (1 if by_status.get("w10_clean_negative") == "inconclusive" else 0) + blocked
+        self.assertEqual(neg_safety_correct, 4, f"negatives/safety 4/4 must be correct, got {neg_safety_correct}")
 
     def test_passive_info_contents(self):
         # Honest product-evidence assertions on analyzer info (no runner
