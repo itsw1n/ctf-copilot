@@ -16,6 +16,7 @@ STRUCTURAL_WEIGHT={
     'gzip': 1.00, 'jwt': .98, 'binary': .96, 'morse': .94, 'hex': .92,
     'url': .88, 'html': .86, 'base32': .82, 'base64': .80,
     'ascii85': .76, 'ascii': .74, 'base85': .58,
+    'integer': .78,
     'rot13': .30, 'atbash': .24, 'caesar': .18, 'xor': .14,
 }
 SPECULATIVE={'caesar','rot13','atbash','xor'}

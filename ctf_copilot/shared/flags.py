@@ -7,14 +7,43 @@ FLAG_PATTERNS = [
     re.compile(r"\b[A-Za-z0-9_-]{2,24}\{[^{}\r\n]{1,300}\}"),
 ]
 
+PLACEHOLDER_CONTENT = re.compile(
+    r"(?i)^(?:\.{2,}|flag(?:[_ -]?(?:here|goes here))?|redacted|example|placeholder|xxx+|your[_ -]?flag)$"
+)
+
+
+def is_placeholder_flag(value: str) -> bool:
+    if "{" not in value or not value.endswith("}"):
+        return True
+    content = value[value.find("{") + 1:-1].strip()
+    return not content or bool(PLACEHOLDER_CONTENT.fullmatch(content))
+
 
 def find_flags(text: str) -> list[str]:
     out: list[str] = []
     for pattern in FLAG_PATTERNS:
         for match in pattern.findall(text):
-            if match not in out:
+            if match not in out and not is_placeholder_flag(match):
                 out.append(match)
     return out
+
+
+def validate_flags(text: str, pattern: str | None = None, source_kind: str = "derived") -> tuple[list[str], list[str]]:
+    """Return (validated, candidates), keeping source literals conservative."""
+    rows = find_flags(text)
+    custom = re.compile(pattern) if pattern else None
+    confirmed: list[str] = []
+    candidates: list[str] = []
+    for value in rows:
+        if custom and custom.fullmatch(value):
+            confirmed.append(value)
+        elif source_kind in {"decoded", "decrypted", "extracted", "response", "direct"} and re.match(
+            r"(?i)^(?:flag|picoCTF|HTB|THM)\{", value
+        ):
+            confirmed.append(value)
+        else:
+            candidates.append(value)
+    return list(dict.fromkeys(confirmed)), list(dict.fromkeys(candidates))
 
 def find_flags_bytes(data: bytes, max_xor_bytes: int = 65_536) -> list[str]:
     """Find flags in ordinary/wide text and small single-byte-XOR blobs."""

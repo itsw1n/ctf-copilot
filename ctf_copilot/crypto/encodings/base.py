@@ -38,6 +38,11 @@ def decode(kind: str, value: str) -> str:
         cleaned=re.sub(r'\s+','',raw)
         if not cleaned or not re.fullmatch(r'[01]+',cleaned) or len(cleaned)%8: raise ValueError('Binary length must be divisible by 8.')
         return ''.join(chr(int(cleaned[i:i+8],2)) for i in range(0,len(cleaned),8))
+    if kind in {'integer','decimal'}:
+        cleaned=raw.strip().lower()
+        if not re.fullmatch(r'(?:0x[0-9a-f]+|\d+)',cleaned): raise ValueError('Integer input must be decimal or 0x-prefixed hexadecimal.')
+        number=int(cleaned,0)
+        return decode_bytes(number.to_bytes(max(1,(number.bit_length()+7)//8),'big'))
     if kind=='url': return urllib.parse.unquote_plus(raw)
     if kind=='html': return html.unescape(raw)
     raise ValueError(f'Unsupported encoding: {kind}')
@@ -52,6 +57,7 @@ def looks(kind: str, raw: str) -> bool:
         c=compact.upper(); return len(c)>=8 and bool(re.fullmatch(r'[A-Z2-7=]+',c)) and any(x in c for x in '234567=')
     if kind=='ascii': return bool(re.fullmatch(r'(?:\d{1,3}[\s,]+)+\d{1,3}',raw.strip()))
     if kind=='binary': return len(compact)>=16 and len(compact)%8==0 and bool(re.fullmatch(r'[01]+',compact))
+    if kind=='integer': return bool(re.fullmatch(r'(?:0x[0-9A-Fa-f]{8,}|\d{8,})',raw.strip()))
     # A plus alone is common in Base64 ciphertext.  Treat URL decoding as a
     # structural candidate only for percent escapes or an actual query string.
     if kind=='url': return bool(re.search(r'%[0-9A-Fa-f]{2}',raw) or re.search(r'(?:^|[?&])[A-Za-z][A-Za-z0-9_-]*=',raw))

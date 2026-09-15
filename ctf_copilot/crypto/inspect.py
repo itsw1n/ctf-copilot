@@ -30,7 +30,7 @@ def inspect_python(path: str) -> str:
     if not p.is_file(): return f'Not a file: {p}'
     try: tree=ast.parse(p.read_text(encoding='utf-8',errors='replace'))
     except SyntaxError as exc: return f'Cannot parse Python source: {exc}'
-    operations=[]; constants=[]; functions=[]
+    operations=[]; constants=[]; functions=[]; calls=[]; modes=[]
     for node in ast.walk(tree):
         if isinstance(node,ast.FunctionDef): functions.append(node.name)
         elif isinstance(node,ast.Assign) and isinstance(node.value,ast.Constant) and isinstance(node.value.value,(str,int,bytes)):
@@ -38,6 +38,19 @@ def inspect_python(path: str) -> str:
         elif isinstance(node,ast.BinOp):
             op={ast.BitXor:'XOR',ast.Add:'addition',ast.Sub:'subtraction',ast.Mult:'multiplication',ast.Mod:'modulo',ast.Pow:'modular/exponentiation'}.get(type(node.op))
             if op: operations.append(op)
-    out=['CRYPTO SOURCE INSPECTION (static; source was not executed)','===========================================================',f'Functions: {", ".join(functions[:30]) or "(none)"}',f'Constants: {", ".join(constants[:20]) or "(none)"}',f'Operations: {", ".join(dict.fromkeys(operations)) or "(none)"}']
+        elif isinstance(node,ast.Call):
+            name=ast.unparse(node.func)
+            calls.append(name)
+            for arg in node.args:
+                rendered=ast.unparse(arg)
+                if 'MODE_' in rendered: modes.append(rendered)
+        elif isinstance(node,ast.Attribute) and node.attr.startswith('MODE_'):
+            modes.append(node.attr)
+    out=['CRYPTO SOURCE INSPECTION (static; source was not executed)','===========================================================',f'Functions: {", ".join(functions[:30]) or "(none)"}',f'Constants: {", ".join(constants[:20]) or "(none)"}',f'Operations: {", ".join(dict.fromkeys(operations)) or "(none)"}',f'Calls: {", ".join(dict.fromkeys(calls))[:500] or "(none)"}',f'Cipher modes: {", ".join(dict.fromkeys(modes)) or "(none)"}']
+    source=p.read_text(encoding='utf-8',errors='replace')
+    if re.search(r'time\.time\s*\(',source) and re.search(r'(?:sha256|md5|sha1)',source,re.I):
+        out += ['', 'Finding: time-derived key pattern detected.', 'Meaning: the exact timestamp may be the only unknown key material.', 'Next: reproduce the shown key derivation and test only the bounded timestamp range given by the challenge hint.']
+    if re.search(r'\bAES\b',source) or re.search(r'Crypto\.Cipher',source):
+        out += ['', 'Finding: block-cipher API detected.', 'Next: identify the mode, key derivation, IV/nonce, ciphertext representation, and padding before attempting decryption.']
     if operations: out += ['', 'Solve strategy: reverse reversible operations in reverse order. XOR reverses with the same key; addition/subtraction invert each other; multiplication needs a known factor or modular inverse.']
     return '\n'.join(out)

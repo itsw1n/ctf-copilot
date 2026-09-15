@@ -7,7 +7,7 @@ from .classical.caesar import all_shifts, atbash, rot13
 from .classical.morse import decode as decode_morse, looks as looks_morse
 from .formats.jwt import looks as looks_jwt, decode as decode_jwt
 
-STRONG_ENCODINGS=('hex','binary','url','html','base32','base64','ascii85','ascii','base85')
+STRONG_ENCODINGS=('hex','binary','url','html','base32','base64','ascii85','ascii','integer','base85')
 
 def _cand(kind: str, output: str, reason: str, parameter: str|None=None) -> Candidate:
     st=structural(kind)
@@ -73,7 +73,7 @@ def _path_score(chain: tuple[Candidate,...], output: str) -> float:
     if has_known_flag(output): total += 6.0
     return total
 
-def analyze(value: str, max_depth: int=5, branch_limit: int=8, beam_width: int=10) -> list[PathResult]:
+def analyze(value: str, max_depth: int=6, branch_limit: int=8, beam_width: int=10) -> list[PathResult]:
     start=unwrap_python_bytes(value)
     frontier=[(start,tuple())]
     seen_depth={(start,0)}
