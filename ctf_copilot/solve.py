@@ -14,7 +14,6 @@ from .shared.files import file_report
 from .shared.flags import find_flags, validate_flags
 from .flags.scanner import scan as flag_scan
 from .engine import collect_flags, Finding, Artifact
-import re
 
 
 def classify_file(p: Path) -> str:
@@ -155,7 +154,8 @@ def _persist_flat(report, workspace: str | None):
             dest = _next_dest("decoded.txt")
             dest.write_text(blob, encoding="utf-8")
             art.path = str(dest)
-            persisted.append(art) if art not in persisted else None
+            if art not in persisted:
+                persisted.append(art)
         except OSError:
             continue
     # Deduplicate persisted entries by path.
@@ -214,7 +214,7 @@ def _build_registry():
             return 0.0
         text = str(value or "")
         if text.startswith(("http://", "https://")):
-            return 0.15
+            return 0.0  # web-only: web-passive analyzer owns URLs
         p = Path(text)
         try:
             if p.is_file() or p.is_dir():

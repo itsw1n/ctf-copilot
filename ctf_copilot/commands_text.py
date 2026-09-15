@@ -16,14 +16,23 @@ CRYPTO - encoded/encrypted/hash-looking text
       Best first command for unknown encoded text. Detects likely formats, follows layers, ranks evidence.
   ctf crypto decode <text> --kind <type>
       Use when you already know the encoding/cipher and want a direct decode.
-  ctf crypto caesar <text>
-      Use when letters look shifted; ranks Caesar rotations.
   ctf crypto xor <hex>
       Use for suspected single-byte XOR represented as hex.
-  ctf crypto jwt <token>
-      Decodes JWT header/payload only; does NOT prove or verify the signature.
-  ctf crypto hash <digest>
-      Identifies likely hash families so you know which John/Hashcat mode to investigate.
+  ctf crypto xor-repeat <hex>
+      Use for suspected repeating-key XOR represented as hex.
+  ctf crypto xor-crib <hex> --crib <text>
+      Use when you know a likely plaintext fragment of an XOR ciphertext.
+  ctf crypto vigenere <text>
+      Use when the challenge suggests Vigenere; decrypts with a key or ranks candidates.
+  ctf crypto rsa <params>
+      Use for weak-RSA parameter sets (small e, shared primes, supplied factors).
+  ctf crypto block <ciphertext>
+      Use to inspect AES/DES blocks or decrypt with an explicitly supplied key.
+  ctf crypto inspect <file-or-text>
+      Use to find RSA/XOR/hash clues in text or Python source (never executed).
+  ctf crypto template <source>
+      Use to generate an editable solve.py scaffold from supplied crypto source.
+  Specialist shortcuts (still available, see `ctf crypto --help`): caesar, jwt, hash.
 
 FORENSICS - files/images/archives/network captures
   ctf forensics triage <file>
@@ -125,13 +134,13 @@ COMMAND_SECTIONS: list[tuple[str, list[tuple[str, str]]]] = [
     ("CRYPTO - encoded/encrypted/hash-looking text", [
         ("ctf crypto analyze <text>", "Best first command for unknown encoded text."),
         ("ctf crypto decode <text> --kind <type>", "Direct decode when you know the type."),
-        ("ctf crypto caesar <text>", "Ranks Caesar rotations."),
         ("ctf crypto xor <hex>", "Suspected single-byte XOR as hex."),
         ("ctf crypto xor-repeat <hex>", "Short repeating-key XOR candidates."),
-        ("ctf crypto jwt <token>", "Decodes JWT header/payload only; does not verify signature."),
-        ("ctf crypto hash <digest>", "Identifies likely hash families."),
-        ("ctf crypto inspect <file-or-text>", "Finds RSA/XOR/hash clues without executing source."),
+        ("ctf crypto xor-crib <hex> --crib <text>", "Known-plaintext fragment / crib dragging."),
+        ("ctf crypto vigenere <text> [--key KEY]", "Vigenere decrypt or key candidates."),
         ("ctf crypto rsa <file-or-text>", "Safe small-exponent or small-factor RSA recovery."),
+        ("ctf crypto block <ciphertext> [--key KEY]", "ECB inspection / decrypt with supplied key."),
+        ("ctf crypto inspect <file-or-text>", "Finds RSA/XOR/hash clues without executing source."),
         ("ctf crypto template <source> [--output]", "Generates editable solve.py scaffold."),
     ]),
     ("FORENSICS - files/images/archives/network captures", [
