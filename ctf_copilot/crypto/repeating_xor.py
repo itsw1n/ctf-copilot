@@ -4,7 +4,7 @@ from .scoring import quality
 
 def _distance(a: bytes,b: bytes) -> int: return sum((x^y).bit_count() for x,y in zip(a,b))
 
-def crack(hex_value: str, max_key_size: int=16) -> list[tuple[float,bytes,str]]:
+def crack(hex_value: str, max_key_size: int=40) -> list[tuple[float,bytes,str]]:
     try: data=bytes.fromhex(''.join(hex_value.split()))
     except ValueError: return []
     sizes=[]

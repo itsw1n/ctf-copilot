@@ -104,6 +104,24 @@ class ExpandedCryptoTests(unittest.TestCase):
         self.assertTrue(rows)
         self.assertFalse(any(has_known_flag(row.plaintext) for row in rows))
 
+    def test_xor_repeat_default_window_is_40(self):
+        import inspect
+
+        from ctf_copilot.crypto import repeating_xor
+
+        self.assertEqual(
+            inspect.signature(repeating_xor.crack).parameters["max_key_size"].default, 40
+        )
+
+    def test_xor_repeat_cli_max_key_size_flag(self):
+        from ctf_copilot.cli import build_parser
+
+        parser = build_parser()
+        ns = parser.parse_args(["crypto", "xor-repeat", "deadbeef" * 16])
+        self.assertEqual(ns.max_key_size, 40)
+        ns = parser.parse_args(["crypto", "xor-repeat", "deadbeef" * 16, "--max-key-size", "16"])
+        self.assertEqual(ns.max_key_size, 16)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -65,7 +65,9 @@ def analyze_target(target: str, related: list[str] | None = None, description: s
     context = "\n".join(combined_sources + [description]).lower()
     xor_hint = bool(re.search(r"\b(?:xor|exclusive.or|crib|keystream)\b", context))
     if xor_hint and primary.raw:
-        xor_rows = single(primary.raw.hex()) + repeating(primary.raw.hex())
+        # Auto stays bounded small (16) for noise: full 2-40 window is
+        # available via `ctf crypto xor-repeat --max-key-size 40`.
+        xor_rows = single(primary.raw.hex()) + repeating(primary.raw.hex(), max_key_size=16)
         for crib in known_plaintexts:
             xor_rows.extend(known_plaintext(primary.raw.hex(), crib))
         useful = sorted(xor_rows, key=lambda row: row.score, reverse=True)
