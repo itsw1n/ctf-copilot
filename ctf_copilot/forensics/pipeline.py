@@ -351,6 +351,83 @@ def triage_file(path, budget=None, description: str = "", flag_pattern: str | No
             0.5, "low-cost image path only; no heavy carving here",
             ["ctf forensics stego <file>", "ctf forensics metadata <file>"],
             [], "candidate", [f"magic={magic_str}"]))
+    elif ftype == "audio" and b.can_continue():
+        try:
+            from .audio import analyze as audio_analyze
+            af, aarts, arender = audio_analyze(str(p), b)
+            for f in af[:8]:
+                findings.append(f)
+            for a in (aarts or [])[:8]:
+                try:
+                    if Path(a.path) != p and b.consume_artifact(a.size):
+                        artifacts.append(a)
+                except Exception:
+                    continue
+        except Exception as e:
+            findings.append(_finding(
+                "forensics", "audio-quick", f"audio helper failed: {e}", 0.3,
+                "guarded", ["ctf forensics stego <file>"], [], "inconclusive", [str(e)]))
+    elif ftype == "document" and b.can_continue():
+        try:
+            from .documents import analyze as doc_analyze
+            df, darts, _dr = doc_analyze(str(p), b)
+            for f in df[:8]:
+                findings.append(f)
+            for a in (darts or [])[:8]:
+                try:
+                    if Path(a.path) != p and b.consume_artifact(a.size):
+                        artifacts.append(a)
+                except Exception:
+                    continue
+        except Exception as e:
+            findings.append(_finding(
+                "forensics", "document-quick", f"document helper failed: {e}", 0.3,
+                "guarded", ["ctf forensics metadata <file>"], [], "inconclusive", [str(e)]))
+    elif ftype == "disk" and b.can_continue():
+        try:
+            from .disk import analyze as disk_analyze
+            df, darts, _dr = disk_analyze(str(p), b)
+            for f in df[:8]:
+                findings.append(f)
+            for a in (darts or [])[:8]:
+                try:
+                    if Path(a.path) != p and b.consume_artifact(a.size):
+                        artifacts.append(a)
+                except Exception:
+                    continue
+        except Exception as e:
+            findings.append(_finding(
+                "forensics", "disk-quick", f"disk helper failed: {e}", 0.3,
+                "guarded; read-only survey only",
+                ["mmls <image>; fsstat <image>; bounded fls; icat chosen inode only"],
+                [], "inconclusive", [str(e)]))
+    elif ftype == "memory" and b.can_continue():
+        try:
+            from .memory import analyze as mem_analyze
+            mf, marts, _mr = mem_analyze(str(p), b)
+            for f in mf[:8]:
+                findings.append(f)
+            for a in (marts or [])[:8]:
+                try:
+                    if Path(a.path) != p and b.consume_artifact(a.size):
+                        artifacts.append(a)
+                except Exception:
+                    continue
+        except Exception as e:
+            findings.append(_finding(
+                "forensics", "memory-quick", f"memory helper failed: {e}", 0.3,
+                "guarded; volatility first only",
+                ["vol -f <dump> windows.info first; then one applicable plugin"],
+                [], "inconclusive", [str(e)]))
+    elif ftype in ("text", "binary") and b.can_continue():
+        hint = ("text: readable content scanned; try crypto/metadata paths" if ftype == "text"
+                else "binary: no archive/image/audio/document/pcap signature; try strings/metadata/crypto paths")
+        findings.append(_finding(
+            "forensics", f"{ftype}-quick", hint, 0.4,
+            "low-cost fallback; no heavy carving here",
+            ["ctf forensics strings <file>", "ctf forensics evidence <file>",
+             "ctf crypto analyze \"<copied text>\" if encoded"],
+            [], "inconclusive", [f"type={ftype}"]))
     elif ftype == "pcap" and b.can_continue():
         if which("tshark"):
             try:
