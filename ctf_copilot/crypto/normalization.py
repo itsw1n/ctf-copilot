@@ -42,8 +42,15 @@ def parse_bytes(value: str | bytes, fmt: str = "auto") -> bytes:
         return raw.encode()
     compact = re.sub(r"\s+", "", raw)
     hexed = re.sub(r"(?i)0x|[\s,:]", "", raw)
-    if fmt == "hex" or (fmt == "auto" and len(hexed) >= 2 and len(hexed) % 2 == 0 and re.fullmatch(r"[0-9a-fA-F]+", hexed)):
+    if fmt == "hex":
         return bytes.fromhex(hexed)
+    if fmt in {"decimal", "integer"} or (fmt == "auto" and re.fullmatch(r"\d+", raw)):
+        number = int(raw, 10)
+        return number.to_bytes(max(1, (number.bit_length() + 7) // 8), "big")
+    if fmt == "auto" and len(hexed) >= 2 and len(hexed) % 2 == 0 and re.fullmatch(r"[0-9a-fA-F]+", hexed):
+        has_hex_evidence = bool(re.search(r"(?i)0x", raw) or re.search(r"[a-fA-F]", hexed) or re.search(r"[\s,:]", raw))
+        if has_hex_evidence:
+            return bytes.fromhex(hexed)
     if fmt == "base64" or (fmt == "auto" and len(compact) >= 8 and re.fullmatch(r"[A-Za-z0-9+/=_-]+", compact)):
         candidate = compact.replace("-", "+").replace("_", "/")
         candidate += "=" * ((4 - len(candidate) % 4) % 4)
@@ -52,9 +59,6 @@ def parse_bytes(value: str | bytes, fmt: str = "auto") -> bytes:
         except ValueError:
             if fmt == "base64":
                 raise
-    if fmt in {"decimal", "integer"} or (fmt == "auto" and re.fullmatch(r"\d+", raw)):
-        number = int(raw, 10)
-        return number.to_bytes(max(1, (number.bit_length() + 7) // 8), "big")
     if fmt == "binary" or (fmt == "auto" and len(compact) >= 8 and len(compact) % 8 == 0 and re.fullmatch(r"[01]+", compact)):
         return bytes(int(compact[index:index + 8], 2) for index in range(0, len(compact), 8))
     decimal = re.fullmatch(r"[\[\(]?\s*(\d{1,3}(?:\s*[, ]\s*\d{1,3})+)\s*[\]\)]?", raw)
