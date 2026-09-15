@@ -124,15 +124,9 @@ def _run_passive(entry, html, meta, base_url):
     s = _session_with_routes(routes, base=base_url, max_requests=50)
     try:
         info = az.analyze(main_url, session=s, crawl=0)
-        out = az.render(info)
-        # evidence summary for classifier stability
-        out += f"\nEVIDENCE passive {entry['id']} forms={len(info.get('forms') or [])} "
-        out += f"comments={len(info.get('comments') or [])} endpoints={len(info.get('endpoints') or [])} "
-        out += f"jwt={len(info.get('jwt') or [])} robots={bool(info.get('robots'))} "
-        out += f"chain={len(info.get('redirect_chain') or [])}\n"
-        if entry["id"] == "w10_clean_negative":
-            out += "decisive-next-step: clean baseline, no false positives; next: manual review or authorized probes.\n"
-        return out
+        # Honest: product evidence only. No runner-injected EVIDENCE/
+        # decisive lines; classify() must match real analyzer sections.
+        return az.render(info)
     finally:
         _stop(s)
 
@@ -251,8 +245,8 @@ def _run_active(entry, html, meta, base_url):
             from ctf_copilot.web import analyzer as az
             rows = wc._cookies_rows(s, target)
             info = az.analyze(target, session=s, crawl=0)
+            # Honest: only real analyzer signal; no manual decisive append.
             rows = list(rows) + (["JWT-like cookies observed"] if info.get("jwt") else [])
-            rows.append("decisive-next-step: verify cookie flags with curl -b/-c; decode JWT offline.")
         elif tech == "redirect":
             from ctf_copilot.web.probes import redirect
             rows = redirect.probe(target, session=s)
@@ -260,8 +254,9 @@ def _run_active(entry, html, meta, base_url):
             from ctf_copilot.web import analyzer as az
             info = az.analyze(target, session=s, crawl=0)
             out = az.render(info)
-            rows = [out, "observation: multipart /upload form present; no file uploaded (observation only).",
-                    "decisive-next-step: inspect form in Burp; do not upload without explicit authorization."]
+            # Honest: observation only; no manual decisive-next-step append.
+            # The form itself is the product evidence.
+            rows = [out, "observation: multipart /upload form present; no file uploaded (observation only)."]
         else:
             rows = [f"unknown technique {tech}"]
         header = f"AUTHORIZED ACTIVE confirm-authorized technique={tech} target={target}\n"
@@ -273,18 +268,31 @@ def _run_active(entry, html, meta, base_url):
 def _run_safety(entry, html, meta, base_url):
     tech = entry.get("technique", "")
     if tech == "same-origin-enforce":
-        from ctf_copilot.web.session import WebSession
+        # Honest: FakeSession (no network) + prove zero requests left the
+        # session on cross-origin block. Real WebSession must not be used.
         from ctf_copilot.web.probes import idor, traversal, ssti, command, redirect
-        s = WebSession(base_url)
-        blocked = 0
-        for mod in (idor, traversal, ssti, command, redirect):
+        fake = FakeSession(base=base_url, routes={}, max_requests=50)
+        s = fake._inner
+        try:
+            blocked = 0
+            for mod in (idor, traversal, ssti, command, redirect):
+                try:
+                    mod.probe("http://evil.test/x?id=1", session=s)
+                except ValueError:
+                    blocked += 1
+            sent = len(fake.calls)
             try:
-                mod.probe("http://evil.test/x?id=1", session=s)
-            except ValueError:
-                blocked += 1
-        if blocked == 5:
-            return "BLOCKED same-origin enforced: 5/5 probes raised ValueError on cross-origin."
-        return f"NOT BLOCKED: only {blocked}/5 raised ValueError"
+                ledger_n = len(getattr(s, "ledger", []) or [])
+            except Exception:
+                ledger_n = -1
+            if blocked == 5 and sent == 0 and ledger_n == 0:
+                return "BLOCKED same-origin enforced: 5/5 probes raised ValueError on cross-origin (0 requests sent)."
+            return f"NOT BLOCKED: only {blocked}/5 raised ValueError (calls={sent} ledger={ledger_n})"
+        finally:
+            try:
+                fake._patcher.stop()
+            except Exception:
+                pass
     if tech == "request-budget-enforce":
         from ctf_copilot.web.probes import traversal
         s = _session_with_routes(
@@ -331,18 +339,125 @@ def run_entry(entry):
 
 
 def classify(entry, output):
-    """Return one of evidence|decisive-next-step|detected|inconclusive|blocked|missed."""
+    """Honest classifier: technique-specific product evidence only.
+
+    Never returns ``expect`` on generic substrings (evidence/allow/robots/
+    endpoints/cookies:/observation/decisive). Each technique requires its
+    domain token in non-empty probe/analyzer rows; otherwise ``inconclusive``
+    (a real mismatch).
+    """
     if output.startswith("RUNNER EXCEPTION"):
         return "missed"
     low = output.lower()
     if entry.get("kind") == "safety":
         return "blocked" if "blocked" in low and "not blocked" not in low else "inconclusive"
-    signals = ("deterministic", "candidate", "evidence", "forms:", "html comments",
-               "endpoints", "source maps", "jwt-like", "robots", "redirect chain",
-               "technology hints", "allow", "observation", "decisive-next-step",
-               "cookies:", "security header", "handoff")
-    if any(s in low for s in signals):
-        return entry.get("expect", "detected")
+    tech = entry.get("technique", "") or ""
+
+    def _rows_nonempty(token: str) -> bool:
+        # Active outputs start with an AUTHORIZED header line; require real
+        # probe rows beyond it containing the domain token.
+        try:
+            lines = output.strip().splitlines()
+            if len(lines) < 2:
+                return False
+            body = "\n".join(lines[1:]).lower()
+            return bool(body.strip()) and token in body
+        except Exception:
+            return False
+
+    # -- passive: analyzer render sections (technique-specific) ----------
+    if entry.get("kind") == "passive":
+        if tech == "forms":
+            return "evidence" if "forms:" in low else "inconclusive"
+        if tech == "comments":
+            return "evidence" if "html comments:" in low else "inconclusive"
+        if tech == "hidden-inputs":
+            return "evidence" if "hidden:" in low else "inconclusive"
+        if tech == "js-endpoints":
+            if "endpoints:" in low and ("/api/v1/users" in low or "/admin/panel" in low):
+                return "evidence"
+            return "inconclusive"
+        if tech == "sourcemap":
+            if "source maps:" in low and ".map" in low:
+                return "evidence"
+            return "inconclusive"
+        if tech == "jwt-cookie":
+            return "evidence" if "jwt-like" in low else "inconclusive"
+        if tech == "robots-sitemap":
+            if "robots.txt:" in low and "disallow" in low and "sitemap.xml:" in low:
+                return "evidence"
+            return "inconclusive"
+        if tech == "redirects":
+            # Generic "redirect chain:" appears on every page (single entry);
+            # require the real two-hop chain a -> b.
+            if ("redirect chain:" in low and "http://example.test/a" in low
+                    and "http://example.test/b" in low):
+                return "evidence"
+            return "inconclusive"
+        if tech == "headers-tech":
+            # Require real disclosed tech, not the "(not disclosed)" fallback.
+            if "technology hints:" in low and "nginx" in low and "express" in low:
+                return "evidence"
+            return "inconclusive"
+        if tech == "clean-negative":
+            # Clean baseline must stay inconclusive with zero findings.
+            return "inconclusive"
+        return "inconclusive"
+
+    # -- active: probe rows with domain tokens ---------------------------
+    if tech == "sqli-error":
+        if _rows_nonempty("sql") and ("sql-like error" in low and ("syntax" in low or "mysql" in low)):
+            return "detected"
+        return "inconclusive"
+    if tech == "sqli-boolean":
+        if _rows_nonempty("large body-size change") and "large body-size change" in low:
+            return "decisive-next-step"
+        return "inconclusive"
+    if tech == "xss-reflect":
+        if _rows_nonempty("ctfcp_xss") and "ctfcp_xss" in low and "reflect" in low:
+            return "detected"
+        return "inconclusive"
+    if tech == "idor":
+        # Route serves alice (id=1) vs bob (id=2); probe reports email delta.
+        if _rows_nonempty("email") and "deterministic" in low and "user email" in low:
+            return "detected"
+        return "inconclusive"
+    if tech == "traversal":
+        if _rows_nonempty("root:x") and "root:x" in low and "lfi marker" in low:
+            return "detected"
+        return "inconclusive"
+    if tech == "ssti":
+        if _rows_nonempty("49") and "arithmetic marker" in low and "49" in output:
+            return "detected"
+        return "inconclusive"
+    if tech == "cmd-indicator":
+        if _rows_nonempty("uid=") and "uid=" in low and "shell-output indicator" in low:
+            return "detected"
+        return "inconclusive"
+    if tech == "method-auth":
+        if _rows_nonempty("allow=") and "allow=" in low and "only safe methods" in low:
+            return "decisive-next-step"
+        return "inconclusive"
+    if tech == "header-auth":
+        if (_rows_nonempty("handoff") and "content-security-policy" in low
+                and "missing" in low and "handoff" in low):
+            return "decisive-next-step"
+        return "inconclusive"
+    if tech == "cookie-jwt-clue":
+        if (_rows_nonempty("handoff") and "jwt" in low and "handoff" in low
+                and ("session:" in low or "cookie" in low)):
+            return "decisive-next-step"
+        return "inconclusive"
+    if tech == "redirect":
+        if _rows_nonempty("evil.example") and "evil.example" in low and "cross-host redirect" in low:
+            return "detected"
+        return "inconclusive"
+    if tech == "upload-observation":
+        # Honest: multipart form observation is evidence (no handoff/decisive
+        # emitted by product). Manifest expects evidence.
+        if _rows_nonempty("/upload") and "/upload" in low and "multipart" in low and "forms:" in low:
+            return "evidence"
+        return "inconclusive"
     return "inconclusive"
 
 
@@ -380,6 +495,74 @@ class WebBenchmarkTests(unittest.TestCase):
         self.assertLess(elapsed, 60, f"runtime {elapsed:.1f}s exceeds 60s budget")
         self.assertGreaterEqual(detected, 22, f"need >=22/25 evidence-or-next-step, got {detected} counts={counts}")
         self.assertEqual(blocked, 3, f"safety 3/3 must block, got {blocked} counts={counts}")
+
+    def test_passive_info_contents(self):
+        # Honest product-evidence assertions on analyzer info (no runner
+        # EVIDENCE injection). Each passive fixture must show its own signal;
+        # w10 clean must have zero findings.
+        from ctf_copilot.web import analyzer as az
+        manifest = json.loads(MANIFEST.read_text(encoding="utf-8"))
+        by_id = {e["id"]: e for e in manifest if e.get("kind") == "passive"}
+
+        def _info_for(eid):
+            entry = by_id[eid]
+            html, meta = _load_fixture(entry)
+            base_url = meta.get("base_url", "http://example.test/")
+            path = meta.get("path", "/")
+            main_url = urllib.parse.urljoin(
+                base_url, path.lstrip("/") if path.startswith("/") and path != "/" else path)
+            if path in ("/", ""):
+                main_url = base_url.rstrip("/") + "/"
+            routes: dict = {}
+            routes[main_url.split("?")[0]] = {
+                "text": html,
+                "headers": meta.get("headers", {"Content-Type": "text/html"}),
+                "history": meta.get("history"),
+                "final_url": meta.get("final_url"),
+            }
+            for name, text in (meta.get("aux") or {}).items():
+                routes[urllib.parse.urljoin(base_url, name)] = {"text": text}
+            for name, text in (meta.get("aux_files") or {}).items():
+                routes[urllib.parse.urljoin(base_url, name)] = {"text": text}
+            if "robots.txt" in meta:
+                routes[urllib.parse.urljoin(base_url, "robots.txt")] = {"text": meta["robots.txt"]}
+            if "sitemap.xml" in meta:
+                routes[urllib.parse.urljoin(base_url, "sitemap.xml")] = {"text": meta["sitemap.xml"]}
+            for p in ("robots.txt", "sitemap.xml", ".well-known/security.txt"):
+                routes.setdefault(urllib.parse.urljoin(base_url, p), {"text": ""})
+            s = _session_with_routes(routes, base=base_url, max_requests=50)
+            try:
+                return az.analyze(main_url, session=s, crawl=0)
+            finally:
+                _stop(s)
+
+        self.assertGreater(len(_info_for("w01_forms").get("forms") or []), 0, "w01 forms>0")
+        self.assertGreater(len(_info_for("w02_comments").get("comments") or []), 0, "w02 comments>0")
+        w03 = _info_for("w03_hidden_inputs")
+        self.assertTrue(any((f.get("hidden") for f in (w03.get("forms") or []))),
+                        "w03 hidden>0")
+        self.assertGreater(len(_info_for("w04_js_endpoint").get("endpoints") or []), 0, "w04 endpoints>0")
+        self.assertTrue(_info_for("w05_sourcemap").get("sourcemaps"), "w05 sourcemap fetched")
+        self.assertGreater(len(_info_for("w06_jwt_cookie").get("jwt") or []), 0, "w06 jwt flagged")
+        w07 = _info_for("w07_robots_sitemap")
+        self.assertTrue(w07.get("robots"), "w07 robots")
+        self.assertTrue(w07.get("sitemap"), "w07 sitemap")
+        w08 = _info_for("w08_redirects")
+        self.assertGreater(len(w08.get("redirect_chain") or []), 1, "w08 redirect chain>1")
+        w09 = _info_for("w09_headers_tech")
+        tech = " ".join(w09.get("tech_hints") or []).lower()
+        self.assertIn("nginx", tech, "w09 server tech")
+        self.assertIn("express", tech, "w09 powered-by tech")
+        w10 = _info_for("w10_clean_negative")
+        self.assertEqual(len(w10.get("forms") or []), 0, "w10 clean forms==0")
+        self.assertEqual(len(w10.get("comments") or []), 0, "w10 clean comments==0")
+        self.assertEqual(len(w10.get("endpoints") or []), 0, "w10 clean endpoints==0")
+        self.assertEqual(len(w10.get("jwt") or []), 0, "w10 clean jwt==0")
+        self.assertFalse(w10.get("robots"), "w10 clean robots empty")
+        self.assertFalse(w10.get("sitemap"), "w10 clean sitemap empty")
+        self.assertFalse(w10.get("sourcemaps"), "w10 clean sourcemaps empty")
+        self.assertEqual(classify(by_id["w10_clean_negative"], az.render(w10)),
+                         "inconclusive", "w10 clean must stay inconclusive")
 
     def test_no_active_without_confirm(self):
         from ctf_copilot.web import commands as wc
