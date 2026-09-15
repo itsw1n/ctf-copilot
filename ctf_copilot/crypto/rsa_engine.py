@@ -86,6 +86,33 @@ def _trial_factor(number: int, limit: int = 1_000_000) -> tuple[int, int] | None
     return None
 
 
+def _is_probable_prime(number: int) -> bool:
+    """Deterministic Miller-Rabin for challenge sizes (bases cover <2**64)."""
+    if number < 2:
+        return False
+    small = (2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37)
+    for prime in small:
+        if number % prime == 0:
+            return number == prime
+    composite, suffix = number - 1, 0
+    while composite % 2 == 0:
+        composite //= 2
+        suffix += 1
+    for base in (2, 3, 5, 7, 11, 13, 17):
+        if base % number == 0:
+            continue
+        probe = pow(base, composite, number)
+        if probe in (1, number - 1):
+            continue
+        for _ in range(suffix - 1):
+            probe = (probe * probe) % number
+            if probe == number - 1:
+                break
+        else:
+            return False
+    return True
+
+
 def _decrypt(record: RSARecord, p: int, q: int) -> RSAResult | None:
     values = record.values
     if not all(key in values for key in ("e", "c")):
@@ -177,6 +204,7 @@ def analyze_rsa(values: str | Iterable[str], max_k: int = 100_000, factor_limit:
                 result.technique = "supplied p and q"
                 results.append(result)
         if all(key in row for key in ("n", "e", "c")):
+            start = len(results)
             n, e, c = row["n"], row["e"], row["c"]
             if 1 < e <= 17:
                 root, exact = integer_root(c, e)
@@ -197,6 +225,20 @@ def analyze_rsa(values: str | Iterable[str], max_k: int = 100_000, factor_limit:
                 if result:
                     result.technique = "bounded factorization"
                     results.append(result)
+            if len(results) == start and n >= 2:
+                prime = _is_probable_prime(n)
+                if prime:
+                    results.append(RSAResult("modulus primality check", f"n is prime (deterministic Miller-Rabin; trial division to {factor_limit} found no factor; no factoring attempted beyond bound)", details="prime moduli are not factorable; look for leaked key material or an oracle clue"))
+                else:
+                    results.append(RSAResult("modulus primality check", f"n is composite, no small factor within {factor_limit} (Miller-Rabin composite; no further factoring attempted, bounded)", details="a normal large RSA modulus is not reasonably factorable by this local helper"))
+        elif "n" in row and row["n"] >= 2:
+            n = row["n"]
+            if _trial_factor(n, factor_limit) is None:
+                prime = _is_probable_prime(n)
+                if prime:
+                    results.append(RSAResult("modulus primality check", f"n is prime (deterministic Miller-Rabin; trial division to {factor_limit} found no factor; no factoring attempted beyond bound)", details="prime moduli are not factorable; look for leaked key material or an oracle clue"))
+                else:
+                    results.append(RSAResult("modulus primality check", f"n is composite, no small factor within {factor_limit} (Miller-Rabin composite; no further factoring attempted, bounded)", details="a normal large RSA modulus is not reasonably factorable by this local helper"))
 
     for first, second in combinations(records, 2):
         left, right = first.values, second.values

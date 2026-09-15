@@ -122,6 +122,24 @@ class ExpandedCryptoTests(unittest.TestCase):
         ns = parser.parse_args(["crypto", "xor-repeat", "deadbeef" * 16, "--max-key-size", "16"])
         self.assertEqual(ns.max_key_size, 16)
 
+    def test_rsa_prime_modulus_note(self):
+        from ctf_copilot.crypto.rsa_engine import analyze_rsa
+
+        # Small prime modulus: disable bounded k-search (max_k=0) so the
+        # textbook low-e branch does not mask the primality branch for n=101.
+        results = analyze_rsa(["n=101\ne=3\nc=2"], max_k=0)
+        self.assertTrue(
+            any(r.technique == "modulus primality check" and "prime" in r.evidence.lower() for r in results),
+            f"expected primality note, got {[(r.technique, r.evidence) for r in results]}",
+        )
+
+    def test_rsa_composite_factor_path_unchanged(self):
+        from ctf_copilot.crypto.rsa_engine import analyze_rsa
+
+        results = analyze_rsa(["n=3233\ne=17\nc=2790"])
+        self.assertTrue(any("factor" in r.technique.lower() or "private-key" in r.technique.lower() for r in results))
+        self.assertFalse(any(r.technique == "modulus primality check" for r in results))
+
 
 if __name__ == "__main__":
     unittest.main()
