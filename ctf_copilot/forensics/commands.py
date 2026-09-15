@@ -1,5 +1,6 @@
 from pathlib import Path
-from .triage import triage
+from .pipeline import triage_file
+from ..analysis.budget import AnalysisBudget
 from .metadata import show as metadata
 from .archive import inspect as archive
 from .recurse import inspect as recurse
@@ -12,7 +13,7 @@ def register(sub):
     q=sub.add_parser('forensics',help='Investigate files, images, archives and PCAP evidence',description='Use for challenges where the flag/clue may be hidden in a file, metadata, archive, image/audio stego, or packet capture.')
     sp=q.add_subparsers(dest='action',required=True)
     defs=[
-      ('triage','Unknown file? Run type/metadata/strings/embedded-data checks first.','Automatic first-pass file triage',lambda a: print(triage(a.path))),
+      ('triage','Unknown file? Run type/metadata/strings/embedded-data checks first.','Automatic first-pass file triage',lambda a: _triage(a.path, getattr(a, 'workspace', None), getattr(a, 'budget', 'balanced'))),
       ('metadata','Use when EXIF/comments/GPS/software fields may contain clues.','Show metadata and document clues',lambda a: print(metadata(a.path))),
       ('archive','Use before extraction to inspect entries, encryption, and nesting clues.','Inspect archive clues',lambda a: print(archive(a.path, a.password, a.crack, a.extract))),
       ('recurse','Use on nested archive challenges; safely follows readable data/flags.','Safely inspect nested archive layers',lambda a: print(recurse(a.path))),
@@ -21,6 +22,9 @@ def register(sub):
     ]
     for name,desc,help_,fn in defs:
         z=sp.add_parser(name,help=help_,description=desc); z.add_argument('path');
+        if name=='triage':
+            z.add_argument('--workspace',default=None,help='Workspace dir for extracted artifacts')
+            z.add_argument('--budget',default='balanced',choices=['fast','balanced','deep'],help='Analysis budget profile')
         if name=='archive':
             z.add_argument('--password',action='append',default=[],help='Password candidate from challenge clues')
             z.add_argument('--crack',action='store_true',help='Show controlled cracking handoff')
@@ -32,6 +36,18 @@ def register(sub):
     z=sp.add_parser('strings',help='Extract printable strings',description='Use when a binary/file may contain readable passwords, URLs, flags, or clues.'); z.add_argument('path'); z.set_defaults(fn=lambda a:_strings(a.path))
     z=sp.add_parser('hex',help='Show first bytes as hex',description='Use to inspect file signatures/magic bytes manually.'); z.add_argument('path'); z.add_argument('--bytes',type=int,default=256); z.set_defaults(fn=lambda a: print(Path(a.path).read_bytes()[:max(1,min(a.bytes,4096))].hex(' ')))
     z=sp.add_parser('evidence',help='Correlate magic bytes, embedded data and clue paths',description='Explains signature mismatches, embedded files, encoded text, and relevant next tools.'); z.add_argument('path'); z.set_defaults(fn=lambda a: print(evidence(a.path)))
+
+def _triage(path, workspace=None, budget='balanced'):
+    try:
+        b = AnalysisBudget.named(budget or 'balanced')
+    except ValueError:
+        b = AnalysisBudget.named('balanced')
+    _findings, _arts, render = triage_file(path, budget=b, description="")
+    # workspace currently informational; pipeline extracts to temp staging.
+    # Keep flag for Task 10/11 stability; artifacts live alongside render.
+    if workspace:
+        render += f"\nWorkspace: {workspace}"
+    print(render)
 
 def _strings(path):
     if not which('strings'): raise SystemExit('strings is not installed.')
