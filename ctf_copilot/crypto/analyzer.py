@@ -1,6 +1,7 @@
 from __future__ import annotations
 import json
 from .models import Candidate, PathResult
+from .normalization import parse_bytes, readable
 from .scoring import quality, confidence, has_known_flag, structural, step_score, SPECULATIVE, printable_ratio
 from .encodings.base import decode as decode_encoding, looks as looks_encoding, unwrap_python_bytes
 from .classical.caesar import all_shifts, atbash, rot13
@@ -33,6 +34,18 @@ def detect_candidates(value: str, include_classics: bool=True) -> list[Candidate
     if looks_morse(raw):
         try: rows.append(_cand('morse',decode_morse(raw),'dot/dash token structure strongly matches Morse'))
         except Exception: pass
+    # Byte-safe beam: ensure integer kind participates even for short
+    # pure-decimal inputs (parse_bytes maps "65" -> b"A"). Use readable
+    # to avoid replacement-character damage; drop binary noise.
+    stripped = raw.strip()
+    if stripped.isdigit() and not any(row.kind == "integer" for row in rows):
+        try:
+            raw_bytes = parse_bytes(stripped, "auto")
+            text = readable(raw_bytes)
+            if text and text != raw and "�" not in text and printable_ratio(text) >= 0.82:
+                rows.append(_cand("integer", text, "input matches integer structure and decoded successfully"))
+        except Exception:
+            pass
     if looks_jwt(raw):
         try: rows.append(_cand('jwt',json.dumps(decode_jwt(raw),ensure_ascii=False,sort_keys=True),'three JWT-like segments decoded successfully'))
         except Exception: pass
@@ -74,6 +87,7 @@ def _path_score(chain: tuple[Candidate,...], output: str) -> float:
     return total
 
 def analyze(value: str, max_depth: int=6, branch_limit: int=8, beam_width: int=10) -> list[PathResult]:
+    max_depth = max(1, min(max_depth, 8))
     start=unwrap_python_bytes(value)
     frontier=[(start,tuple())]
     seen_depth={(start,0)}
