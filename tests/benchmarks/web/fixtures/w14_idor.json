@@ -1,0 +1,6 @@
+{
+  "base_url": "http://example.test/",
+  "path": "/item?id=1",
+  "mode": "idor",
+  "note": "id=1 alice vs id=2 bob"
+}

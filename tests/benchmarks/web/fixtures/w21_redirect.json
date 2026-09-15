@@ -1,0 +1,6 @@
+{
+  "base_url": "http://example.test/",
+  "path": "/go?next=/home",
+  "mode": "redirect",
+  "note": "evil next redirects cross-host"
+}

@@ -1,0 +1,11 @@
+{
+  "base_url": "http://example.test/",
+  "path": "/",
+  "headers": {
+    "Content-Type": "text/html"
+  },
+  "aux_files": {
+    "app.js": "fetch('/api/v1/users'); var x='/admin/panel';"
+  },
+  "note": "js endpoints"
+}

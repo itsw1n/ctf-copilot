@@ -1,0 +1,12 @@
+{
+  "base_url": "http://example.test/",
+  "path": "/a",
+  "headers": {
+    "Content-Type": "text/html"
+  },
+  "history": [
+    "http://example.test/a"
+  ],
+  "final_url": "http://example.test/b",
+  "note": "redirect chain"
+}

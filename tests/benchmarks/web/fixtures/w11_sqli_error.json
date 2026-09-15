@@ -1,0 +1,6 @@
+{
+  "base_url": "http://example.test/",
+  "path": "/search?q=hi",
+  "mode": "sqli_error",
+  "note": "quote triggers 500 sql syntax"
+}

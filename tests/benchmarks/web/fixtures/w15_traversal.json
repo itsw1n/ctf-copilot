@@ -1,0 +1,6 @@
+{
+  "base_url": "http://example.test/",
+  "path": "/view?file=home",
+  "mode": "traversal",
+  "note": "passwd marker"
+}

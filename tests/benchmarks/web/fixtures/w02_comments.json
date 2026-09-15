@@ -1,0 +1,12 @@
+{
+  "base_url": "http://example.test/",
+  "path": "/",
+  "headers": {
+    "Content-Type": "text/html"
+  },
+  "aux": {
+    "robots.txt": "",
+    "sitemap.xml": ""
+  },
+  "note": "html comments"
+}

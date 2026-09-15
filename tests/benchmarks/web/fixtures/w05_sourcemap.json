@@ -1,0 +1,12 @@
+{
+  "base_url": "http://example.test/",
+  "path": "/",
+  "headers": {
+    "Content-Type": "text/html"
+  },
+  "aux_files": {
+    "bundle.js": "console.log(1);\n//# sourceMappingURL=bundle.js.map",
+    "bundle.js.map": "{\"version\":3,\"sources\":[\"app.ts\"],\"names\":[]}"
+  },
+  "note": "sourcemap"
+}

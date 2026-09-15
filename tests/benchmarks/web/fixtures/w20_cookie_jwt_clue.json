@@ -1,0 +1,10 @@
+{
+  "base_url": "http://example.test/",
+  "path": "/",
+  "mode": "cookies_jwt",
+  "headers": {
+    "Content-Type": "text/html",
+    "Set-Cookie": "session=eyJhbGciOiAibm9uZSJ9.eyJ1c2VyIjogImFkbWluIn0.sigpart; Path=/"
+  },
+  "note": "jwt cookie missing flags"
+}

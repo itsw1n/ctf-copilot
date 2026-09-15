@@ -1,0 +1,9 @@
+{
+  "base_url": "http://example.test/",
+  "path": "/",
+  "headers": {
+    "Content-Type": "text/html"
+  },
+  "aux": {},
+  "note": "hidden debug/role"
+}

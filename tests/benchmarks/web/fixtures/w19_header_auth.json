@@ -1,0 +1,10 @@
+{
+  "base_url": "http://example.test/",
+  "path": "/",
+  "mode": "headers",
+  "headers": {
+    "Content-Type": "text/html",
+    "Server": "Apache/2.4"
+  },
+  "note": "missing security headers"
+}

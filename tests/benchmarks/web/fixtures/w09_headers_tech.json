@@ -1,0 +1,10 @@
+{
+  "base_url": "http://example.test/",
+  "path": "/",
+  "headers": {
+    "Content-Type": "text/html",
+    "Server": "nginx/1.24",
+    "X-Powered-By": "Express"
+  },
+  "note": "tech headers, missing CSP"
+}

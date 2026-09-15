@@ -1,0 +1,7 @@
+{
+  "base_url": "http://example.test/",
+  "path": "/",
+  "mode": "methods",
+  "allow": "GET, HEAD, OPTIONS",
+  "note": "safe methods Allow header"
+}

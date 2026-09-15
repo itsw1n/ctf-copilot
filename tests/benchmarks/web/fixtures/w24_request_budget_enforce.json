@@ -1,0 +1,7 @@
+{
+  "base_url": "http://example.test/",
+  "path": "/view?file=home",
+  "mode": "safety_budget",
+  "max_requests": 1,
+  "note": "budget RuntimeError"
+}

@@ -1,0 +1,10 @@
+{
+  "base_url": "http://example.test/",
+  "path": "/",
+  "headers": {
+    "Content-Type": "text/html"
+  },
+  "robots.txt": "User-agent: *\nDisallow: /admin\n",
+  "sitemap.xml": "<urlset><url><loc>http://example.test/hidden</loc></url></urlset>",
+  "note": "robots+sitemap"
+}

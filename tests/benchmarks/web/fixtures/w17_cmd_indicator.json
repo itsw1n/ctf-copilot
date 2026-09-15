@@ -1,0 +1,6 @@
+{
+  "base_url": "http://example.test/",
+  "path": "/ping?ip=127.0.0.1",
+  "mode": "command",
+  "note": ";id shows uid="
+}

@@ -1,0 +1,6 @@
+{
+  "base_url": "http://example.test/",
+  "path": "/",
+  "mode": "safety_origin",
+  "note": "cross-origin must raise ValueError"
+}
