@@ -1,5 +1,13 @@
 # Changelog
 
+## v1.0.0
+
+- Added recursive forensic evidence checks, safe archive helpers, stego/metadata handoffs, and bounded flag discovery.
+- Added the authorized CBC cookie bit-flip helper, including optional fresh-cookie acquisition and progress feedback.
+- Simplified challenge workspaces to a flat folder layout.
+- Added a required-dependency installer that checks installed Kali packages before requesting `sudo` for only missing packages.
+- Updated the beginner workflow, command guide, and test coverage for the v1.0 release.
+
 ## v0.9.0
 
 - Added structured evidence reports, challenge workspaces, and saved reports.

@@ -1,4 +1,4 @@
-# CTF Copilot v0.9
+# CTF Copilot v1.0
 
 CTF Copilot is a beginner-friendly CLI for **authorized CTF challenges and practice labs**. It organizes repeatable first-pass work by category while relying on proven Kali tools where appropriate.
 
@@ -87,7 +87,7 @@ ctf report zip-01
 The report explains the tool used, what it found, why it matters, and the next
 suggested command.
 
-## New v0.9 follow-up commands
+## v1.0 follow-up commands
 
 Use these only when `ctf solve` or the challenge evidence points you there:
 

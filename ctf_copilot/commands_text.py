@@ -137,10 +137,10 @@ def _app_version() -> str:
         pass
     try:
         if _pkg_version is None:
-            return "v0.9"
+            return "v1.0.0"
         return "v" + _pkg_version("ctf-copilot")
     except Exception:
-        return "v0.9"
+        return "v1.0.0"
 
 COMMAND_SECTIONS: list[tuple[str, list[tuple[str, str]]]] = [
     ("START HERE", [
