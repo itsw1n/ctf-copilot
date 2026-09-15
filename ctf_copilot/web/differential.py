@@ -106,6 +106,12 @@ def fetch_bounded(
     elif hasattr(session, "post_form") and method in ("POST", "PUT", "PATCH"):
         resp = session.post_form(url, dict(data or {}), csrf_preserve=False, **kw)
     elif hasattr(session, "request"):
+        if params is not None:
+            kw["params"] = params
+        if data is not None:
+            kw["data"] = data
+        if json_data is not None:
+            kw["json"] = json_data
         resp = session.request(method, url, **kw)
     else:  # pragma: no cover - defensive
         raise TypeError("session object needs get/post_form/post_json or request")

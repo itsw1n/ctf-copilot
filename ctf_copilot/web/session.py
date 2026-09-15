@@ -226,6 +226,8 @@ class WebSession:
                     total += len(chunk)
                 return b"".join(chunks), truncated
         except Exception:
+            if chunks:
+                return b"".join(chunks), True
             pass
         raw = getattr(resp, "content", b"") or b""
         if isinstance(raw, str):
