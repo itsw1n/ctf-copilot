@@ -93,7 +93,14 @@ def _resolve_workspace_dir(name: str) -> Path:
 
 
 def _persist_flat(report, workspace: str | None):
-    """Store report + artifacts flat with collision-safe artifact-XXX names."""
+    """Store report + artifacts flat with collision-safe artifact-XXX names.
+
+    Flat layout: every artifact copies to ``artifact-NNN-<safe-base>`` in the
+    workspace root (never nested). Parent links survive via
+    ``Artifact.source_artifact`` and the ``parent`` field in solve-report.json.
+    Simple NAME workspaces auto-create via workspace.manager; path-like names
+    resolve as directories (recognized workspace paths reused in place).
+    """
     if not workspace:
         return None
     import shutil
