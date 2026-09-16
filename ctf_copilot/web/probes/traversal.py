@@ -59,10 +59,12 @@ def probe(url: str, session: Any | None = None, max_requests: int = 6) -> list[s
             rows.append(
                 f"traversal ?{key}={payload}: deterministic - LFI marker {hit!r} present "
                 f"(status {cmp['status_before']}->{cmp['status_after']}, similarity {cmp['similarity']:.2f}). "
-                f"handoff: curl {variant.url!r}; confirm locally, do not exfiltrate beyond marker.")
+                f"handoff: curl {variant.url!r}; confirm locally, do not exfiltrate beyond marker; "
+                f"gobuster dir -u <base> -w lfi.txt only if authorized.")
             return rows
         rows.append(
             f"traversal ?{key}={payload}: candidate - no marker "
             f"(status {cmp['status_before']}->{cmp['status_after']}, similarity {cmp['similarity']:.2f}); not proof.")
-    rows.append("handoff: manual curl '?file=...' variants; ffuf -u URL -w lfi.txt only if authorized.")
+    rows.append("handoff: manual curl '?file=...' variants; ffuf -u URL -w lfi.txt; "
+                "gobuster dir -u <base> -w lfi.txt only if authorized.")
     return rows

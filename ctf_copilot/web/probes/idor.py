@@ -15,8 +15,17 @@ from ...shared.flags import find_flags as _find_flags
 
 HANDOFF = (
     "handoff: confirm manually with curl 'URL_A' vs curl 'URL_B'; "
-    "then use Burp Repeater changing id=N/N+1; ffuf -u 'URL_FUZZ' -w ids.txt"
+    "then use Burp Repeater changing id=N/N+1; ffuf -u 'URL_FUZZ' -w ids.txt; "
+    "gobuster dir -u 'URL_BASE' -w ids.txt"
 )
+
+
+def _base_url(url: str) -> str:
+    try:
+        parts = urllib.parse.urlsplit(url)
+        return urllib.parse.urlunsplit((parts.scheme, parts.netloc, parts.path, "", ""))
+    except Exception:
+        return url
 
 
 def _numeric_params(url: str) -> list[tuple[str, str]]:
@@ -77,8 +86,8 @@ def probe(url: str, session: Any | None = None, max_requests: int = 6) -> list[s
         marker = "flag pattern" if flag_changed else "user email"
         return [f"idor ?{key}={val} vs {nxt}: deterministic - different {marker} observed ({summary}). "
                 + HANDOFF.replace("URL_A", url).replace("URL_B", _replace_param(url, key, nxt)).replace(
-                    "URL_FUZZ", _replace_param(url, key, "FUZZ"))]
+                    "URL_FUZZ", _replace_param(url, key, "FUZZ")).replace("URL_BASE", _base_url(url))]
     return [f"idor ?{key}={val} vs {nxt}: candidate - response differs or inconclusive ({summary}); "
             f"not proof. Manual review required. "
             + HANDOFF.replace("URL_A", url).replace("URL_B", _replace_param(url, key, nxt)).replace(
-                "URL_FUZZ", _replace_param(url, key, "FUZZ"))]
+                "URL_FUZZ", _replace_param(url, key, "FUZZ")).replace("URL_BASE", _base_url(url))]

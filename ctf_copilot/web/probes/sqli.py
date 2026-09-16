@@ -89,7 +89,8 @@ def probe(url: str, session: Any | None = None, max_requests: int = 6) -> list[s
         if sig:
             rows.append(f"{param}: candidate - " + ", ".join(sig) +
                         f" (similarity {cmp['similarity']:.2f}); not proof. "
-                        f"handoff: sqlmap -u {variant_url!r} --batch --level 1; confirm manually.")
+                        f"handoff: sqlmap -u {variant_url!r} --batch --level 1; "
+                        f"gobuster dir -u <base> -w common.txt only if authorized; confirm manually.")
         else:
             rows.append(f"{param}: candidate - no obvious indicator (similarity {cmp['similarity']:.2f}); not proof.")
     return rows
