@@ -8,6 +8,7 @@ from __future__ import annotations
 from typing import Any
 
 from ..session import WebSession
+from .. import differential as diff
 
 
 def probe(url: str, session: Any | None = None, max_requests: int = 6) -> list[str]:
@@ -22,15 +23,30 @@ def probe(url: str, session: Any | None = None, max_requests: int = 6) -> list[s
             raise RuntimeError(f"request budget exhausted ({max_requests} max for technique)")
 
     out: list[str] = []
-    for method in ("GET", "HEAD", "OPTIONS"):
+    _guard()
+    try:
+        base = diff.fetch_bounded(session, "GET", url)
+    except (ValueError, RuntimeError):
+        raise
+    except Exception as exc:
+        base = None  # type: ignore[assignment]
+        out.append(f"{'GET':<7} error: {exc.__class__.__name__}")
+    if base is not None:
+        try:
+            allow0 = (base.headers or {}).get("allow", "")
+        except Exception:
+            allow0 = ""
+        extra0 = f" allow={allow0}" if allow0 else ""
+        out.append(f"{'GET':<7} {base.status}{extra0}")
+    for method in ("HEAD", "OPTIONS"):
         _guard()
         try:
-            if method == "GET":
-                resp = session.get(url)
-            elif method == "HEAD":
-                resp = session.head(url)
-            else:
-                resp = session.options(url)
+            resp = diff.fetch_bounded(session, method, url)
+            if base is not None:
+                try:
+                    _cmp = diff.compare(base, resp)
+                except Exception:
+                    pass
             allow = ""
             try:
                 low = {str(k).lower(): str(v) for k, v in (resp.headers or {}).items()}

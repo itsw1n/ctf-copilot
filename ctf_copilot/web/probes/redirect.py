@@ -5,6 +5,7 @@ import urllib.parse
 from typing import Any
 
 from ..session import WebSession
+from .. import differential as diff
 
 EVIL = "https://evil.example/phish"
 
@@ -53,11 +54,22 @@ def probe(url: str, session: Any | None = None, max_requests: int = 6) -> list[s
     target = _replace(url, key, EVIL)
     _guard()
     try:
-        resp = session.get(target, allow_redirects=False)
+        base = diff.fetch_bounded(session, "GET", url)
     except (ValueError, RuntimeError):
         raise
     except Exception as exc:
         return [f"redirect ?{key}=evil: candidate - request error {exc}; not proof."]
+    _guard()
+    try:
+        resp = diff.fetch_bounded(session, "GET", target, allow_redirects=False)
+    except (ValueError, RuntimeError):
+        raise
+    except Exception as exc:
+        return [f"redirect ?{key}=evil: candidate - request error {exc}; not proof."]
+    try:
+        _cmp = diff.compare(base, resp)
+    except Exception:
+        pass
     loc = ""
     try:
         low = {str(k).lower(): str(v) for k, v in (resp.headers or {}).items()}
