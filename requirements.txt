@@ -3,6 +3,7 @@
 # (everything else below is optional; none is imported at startup).
 requests
 pycryptodome
+tomli>=2.0; python_version < '3.11'
 beautifulsoup4
 pwntools
 z3-solver

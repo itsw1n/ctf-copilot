@@ -11,7 +11,7 @@ requires-python=">=3.10"
 # Required runtime deps (mirrored in requirements.txt; keep in sync).
 # requests: web session/fetch; pycryptodome: block-cipher + RSA PEM paths.
 # Everything else from requirements.txt stays optional (see [project.optional-dependencies]).
-dependencies=["requests", "pycryptodome"]
+dependencies=["requests", "pycryptodome", "tomli>=2.0; python_version < '3.11'"]
 
 [project.optional-dependencies]
 # Optional helpers; none are imported at startup. Install only if needed.
