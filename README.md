@@ -45,7 +45,7 @@ Install the system tools manually from [`requirements-system.txt`](requirements-
 On Kali Linux you can skip the manual steps above — the installer handles everything including system packages:
 
 ```bash
-cd ~/tools/ctf-copilot
+git clone git@github.com:itsw1n/ctf-copilot.git ctf-copilot && cd ctf-copilot
 ./scripts/install.sh
 source .venv/bin/activate
 ctf --help
