@@ -35,6 +35,9 @@ def register(sub):
     z=sp.add_parser('jwt',help='Decode JWT header/payload',description='Decode a JWT for inspection. This does not verify or bypass its signature.'); z.add_argument('token'); z.set_defaults(fn=lambda a: print(json.dumps(decode_jwt(a.token),indent=2)))
     z=sp.add_parser('compare',help='Compare status/body size for two URLs',description='Use to compare two controlled requests and spot response differences.'); z.add_argument('url1'); z.add_argument('url2'); z.set_defaults(fn=lambda a: _compare(a.url1,a.url2))
     z=sp.add_parser('test',help='Controlled active indicators; authorization required',description='Run low-impact header/method/reflection/SQL-error indicators only on CTF, owned, or explicitly authorized targets.'); z.add_argument('url'); z.add_argument('--confirm-authorized',action='store_true'); z.add_argument('--headers',action='store_true'); z.add_argument('--methods',action='store_true'); z.add_argument('--xss',action='store_true'); z.add_argument('--sqli',action='store_true'); z.add_argument('--idor',action='store_true'); z.add_argument('--traversal',action='store_true'); z.add_argument('--ssti',action='store_true'); z.add_argument('--cmd',dest='cmd_probe',action='store_true'); z.add_argument('--redirect',action='store_true'); z.add_argument('--cookies',action='store_true'); z.set_defaults(fn=_test)
+    # Specialists covered by `analyze`: hidden from --help listings, still runnable.
+    from ..shared.args import hide_subcommands
+    hide_subcommands(sp, 'endpoints', 'js', 'params', 'headers', 'map', 'jwt')
 
 def _analyze_cmd(a):
     from .session import WebSession as _WS, parse_header, parse_cookie
