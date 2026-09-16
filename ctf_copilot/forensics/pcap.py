@@ -58,7 +58,14 @@ def summarize(path: str, budget=None) -> str:
     _run('UDP/ICMP overview', ['tshark', '-r', str(p), '-Y', 'udp or icmp', '-T', 'fields',
                                '-e', 'frame.number', '-e', 'ip.src', '-e', 'ip.dst', '-e', 'dns.qry.name'], 40000)
     objs = _run('object clues (HTTP stats)', ['tshark', '-r', str(p), '-q', '-z', 'http,stat'])
+    _run('object clues (SMB stats)', ['tshark', '-r', str(p), '-q', '-z', 'smb,stat'])
     _ = objs
+    out += ['',
+            '[object extraction handoff]',
+            f'  tshark -r {p} --export-objects http,./objects-http  (bounded; review exported files for flags)',
+            f'  tshark -r {p} --export-objects smb,./objects-smb   (only if hierarchy shows SMB)',
+            f'  tshark -r {p} --export-objects ftp,./objects-ftp   (only if hierarchy shows FTP)',
+            '  Prefer Wireshark File → Export Objects for interactive review; never exfiltrate beyond flag markers.']
     # Suspicious DNS: long labels / high entropy / many unique queries.
     try:
         names = [x.strip() for x in dns.splitlines() if x.strip()]
