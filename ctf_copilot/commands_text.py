@@ -133,14 +133,11 @@ COMMAND_SECTIONS: list[tuple[str, list[tuple[str, str]]]] = [
     ]),
     ("CRYPTO - encoded/encrypted/hash-looking text", [
         ("ctf crypto analyze <text>", "Best first command for unknown encoded text."),
-        ("ctf crypto decode <text> --kind <type>", "Direct decode when you know the type."),
         ("ctf crypto xor <hex>", "Suspected single-byte XOR as hex."),
         ("ctf crypto xor-repeat <hex>", "Short repeating-key XOR candidates."),
         ("ctf crypto xor-crib <hex> --crib <text>", "Known-plaintext fragment / crib dragging."),
         ("ctf crypto vigenere <text> [--key KEY]", "Vigenere decrypt or key candidates."),
-        ("ctf crypto rsa <file-or-text>", "Safe small-exponent or small-factor RSA recovery."),
         ("ctf crypto block <ciphertext> [--key KEY]", "ECB inspection / decrypt with supplied key."),
-        ("ctf crypto inspect <file-or-text>", "Finds RSA/XOR/hash clues without executing source."),
         ("ctf crypto template <source> [--output]", "Generates editable solve.py scaffold."),
     ]),
     ("FORENSICS - files/images/archives/network captures", [
@@ -150,7 +147,6 @@ COMMAND_SECTIONS: list[tuple[str, list[tuple[str, str]]]] = [
         ("ctf forensics archive <archive> [--password WORD] [--extract DIR]", "Lists entries, tests clue passwords, and optionally extracts."),
         ("ctf forensics recurse <archive>", "Safely inspects nested readable archive layers."),
         ("ctf forensics pcap <capture.pcap>", "Summarizes protocols/DNS/HTTP via tshark."),
-        ("ctf forensics evidence <file>", "Correlates magic bytes and embedded clues."),
     ]),
     ("REVERSE - understand a compiled program", [
         ("ctf reverse triage <binary>", "File type, protections, imports/symbols/strings."),
@@ -169,11 +165,6 @@ COMMAND_SECTIONS: list[tuple[str, list[tuple[str, str]]]] = [
     ]),
     ("WEB - inspect an authorized CTF web application", [
         ("ctf web analyze <url>", "Passive forms/comments/cookies/scripts/endpoints."),
-        ("ctf web endpoints <url>", "Paths/API routes from HTML/JS."),
-        ("ctf web js <url-or-js-url>", "Endpoints/params/secrets in JavaScript."),
-        ("ctf web params <url>", "Parameter names for manual Burp testing."),
-        ("ctf web headers <url>", "Headers and missing security hints."),
-        ("ctf web map <url> [--max-pages N]", "Bounded passive same-origin crawl."),
         ("ctf web source <path>", "Static source triage without execution."),
         ("ctf web cbc-bitflip <url> [cookie] --auto-cookie --confirm-authorized", "Authorized CBC cookie helper; can obtain a fresh auth_name cookie."),
         ("ctf web test <url> --confirm-authorized [--xss --sqli --methods]", "Controlled active indicators only on authorized targets."),
@@ -199,7 +190,32 @@ COMMAND_SECTIONS: list[tuple[str, list[tuple[str, str]]]] = [
     ]),
 ]
 
-def render_commands(use_color: bool = True) -> str:
+SPECIALIST_SECTIONS: list[tuple[str, list[tuple[str, str]]]] = [
+    ("CRYPTO specialists (hidden from --help, still work)", [
+        ("ctf crypto decode <text> --kind <type>", "Direct decode when you know the type."),
+        ("ctf crypto caesar <text>", "Rank Caesar letter shifts."),
+        ("ctf crypto jwt <token>", "Decode JWT header/payload."),
+        ("ctf crypto hash <value>", "Identify likely hash family."),
+        ("ctf crypto rsa <file-or-text>", "Bounded RSA weakness analysis."),
+        ("ctf crypto inspect <file-or-text>", "Finds RSA/XOR/hash clues without executing source."),
+    ]),
+    ("WEB specialists (hidden from --help, still work)", [
+        ("ctf web endpoints <url>", "Paths/API routes from HTML/JS."),
+        ("ctf web js <url-or-js-url>", "Endpoints/params/secrets in JavaScript."),
+        ("ctf web params <url>", "Parameter names for manual Burp testing."),
+        ("ctf web headers <url>", "Headers and missing security hints."),
+        ("ctf web map <url> [--max-pages N]", "Bounded passive same-origin crawl."),
+        ("ctf web jwt <token>", "Decode JWT header/payload."),
+    ]),
+    ("FORENSICS specialists (hidden from --help, still work)", [
+        ("ctf forensics evidence <file>", "Correlates magic bytes and embedded clues."),
+    ]),
+]
+
+HIDDEN_COMMANDS = tuple(cmd for _, items in SPECIALIST_SECTIONS for cmd, _ in items)
+
+
+def render_commands(use_color: bool = True, show_all: bool = False) -> str:
     from .shared.style import header, section, cmd, dim
     lines = [header(f"CTF COPILOT {_app_version()} - QUICK COMMAND GUIDE", enabled=use_color), "=" * 38, ""]
     for title, items in COMMAND_SECTIONS:
@@ -207,6 +223,16 @@ def render_commands(use_color: bool = True) -> str:
         for command, desc in items:
             lines.append(f"  {cmd(command, enabled=use_color)}")
             lines.append(f"      {dim(desc, enabled=use_color)}")
+        lines.append("")
+    if show_all:
+        for title, items in SPECIALIST_SECTIONS:
+            lines.append(section(title, enabled=use_color))
+            for command, desc in items:
+                lines.append(f"  {cmd(command, enabled=use_color)}")
+                lines.append(f"      {dim(desc, enabled=use_color)}")
+            lines.append("")
+    else:
+        lines.append(dim("Specialist commands hidden from --help still work; see `ctf commands --all`.", enabled=use_color))
         lines.append("")
     lines += [
         section("Rule of thumb:", enabled=use_color),

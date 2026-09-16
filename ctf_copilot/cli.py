@@ -44,7 +44,8 @@ def build_parser() -> argparse.ArgumentParser:
     q.add_argument('workspace')
     q.set_defaults(fn=lambda a: print(json.dumps(load_report(a.workspace), indent=2) if load_report(a.workspace) else 'No solve report found. Run ctf solve ... --workspace <name>.'))
     q=sub.add_parser('commands',help='Show beginner-friendly command guide',description='Print what each command is for and when to use it.')
-    q.set_defaults(fn=lambda a: print(render_commands(use_color=supports_color(getattr(a, 'no_color', False)))))
+    q.add_argument('--all',dest='show_all',action='store_true',help='Include specialist commands hidden from --help')
+    q.set_defaults(fn=lambda a: print(render_commands(use_color=supports_color(getattr(a, 'no_color', False)), show_all=getattr(a, 'show_all', False))))
     return parser
 
 def main():
