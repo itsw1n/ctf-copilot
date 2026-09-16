@@ -11,7 +11,7 @@ from ..analysis.budget import AnalysisBudget
 from ..analysis.models import Artifact, Finding
 from ..analysis.runner import artifact_for
 from ..shared.files import magic, printable_strings
-from ..shared.flags import find_flags, find_flags_bytes, validate_flags
+from ..shared.flags import emit_flag_config_warnings_once, find_flags, find_flags_bytes, validate_flags
 from ..shared.tooling import run_tool, which
 
 EMBEDDED_SIGS = (
@@ -95,6 +95,7 @@ def _cap(text: str, budget: AnalysisBudget) -> str:
 
 def triage_file(path, budget=None, description: str = "", flag_pattern: str | None = None):
     """Budgeted first-pass triage. Returns (findings, artifacts, render)."""
+    emit_flag_config_warnings_once()
     b = _budget_or_default(budget)
     p = Path(str(path))
     findings: list[Finding] = []

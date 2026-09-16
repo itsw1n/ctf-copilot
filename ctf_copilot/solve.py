@@ -377,6 +377,7 @@ def _build_registry():
 
 
 def solve(target: str, description: str = '', flag_pattern: str | None = None, workspace: str | None = None, inputs: list[str] | None = None, budget: str = 'balanced') -> str:
+    emit_flag_config_warnings_once()
     from .engine import initial_report, render_report
     from .analysis.budget import AnalysisBudget
     try:
