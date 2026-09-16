@@ -33,5 +33,5 @@ def doctor(category=None):
     missing=[n for names in selected.values() for n in names if not which(n)]
     missing=list(dict.fromkeys(missing))
     lines=['CTF COPILOT TOOL DOCTOR','=======================',f'Missing helpers: {len(missing)}']+[f'  - {x}' for x in missing]
-    lines += ['','Install only what you need. On Kali, search packages with:','  apt search <tool>','','Some names (for example zsteg/ROPgadget) may be installed via language-specific package managers depending on your Kali setup.']
+    lines += ['','Install only what you need with your package manager. Some names (for example zsteg/ROPgadget) may be installed via language-specific package managers.']
     return '\n'.join(lines)
