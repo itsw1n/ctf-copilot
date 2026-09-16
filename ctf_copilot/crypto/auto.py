@@ -14,16 +14,29 @@ from .normalization import load_value, parse_bytes, readable
 from .rsa_engine import parse_records, render_rsa
 from .scoring import has_known_flag, quality
 from .xor.engine import known_plaintext, repeating, single, xor_values
-from ..shared.flags import find_flags
+from ..shared.flags import emit_flag_config_warnings_once, find_flags
 
 
 def _chain(result) -> str:
     return " -> ".join(f"{step.kind}({step.parameter})" if step.parameter else step.kind for step in result.chain)
 
 
+def _known_or_pattern(text: str, pattern: str | None) -> bool:
+    """Shared known/configured match OR per-call --flag-pattern hit."""
+    if has_known_flag(text or ""):
+        return True
+    if pattern:
+        try:
+            return bool(re.compile(pattern).search(text or ""))
+        except re.error:
+            return False
+    return False
+
+
 def analyze_target(target: str, related: list[str] | None = None, description: str = "",
                    flag_pattern: str | None = None, known_plaintexts: list[str] | None = None,
                    max_depth: int = 6) -> str:
+    emit_flag_config_warnings_once()
     related = related or []
     known_plaintexts = known_plaintexts or []
     primary = load_value(target)
@@ -44,7 +57,7 @@ def analyze_target(target: str, related: list[str] | None = None, description: s
             findings += 1
 
         hashes = identify_hash(text)
-        decoded_flag = any(has_known_flag(result.output) for result in results)
+        decoded_flag = any(_known_or_pattern(result.output, flag_pattern) for result in results)
         if hashes and not decoded_flag:
             lines += ["", "HASH IDENTIFICATION"]
             for name, evidence in hashes:
@@ -71,7 +84,7 @@ def analyze_target(target: str, related: list[str] | None = None, description: s
         for crib in known_plaintexts:
             xor_rows.extend(known_plaintext(primary.raw.hex(), crib))
         useful = sorted(xor_rows, key=lambda row: row.score, reverse=True)
-        useful = [row for row in useful if has_known_flag(row.plaintext) or row.score >= quality(primary.text or "") + .6][:5]
+        useful = [row for row in useful if _known_or_pattern(row.plaintext, flag_pattern) or row.score >= quality(primary.text or "") + .6][:5]
         if useful:
             lines += ["", "XOR CANDIDATES"]
             for row in useful:
@@ -90,19 +103,19 @@ def analyze_target(target: str, related: list[str] | None = None, description: s
         baseline = quality(text)
         if "vigen" in classical_hint:
             candidates = vigenere_crack(text)
-            candidates = [row for row in candidates if row.score >= baseline + .35 or has_known_flag(row.plaintext)]
+            candidates = [row for row in candidates if row.score >= baseline + .35 or _known_or_pattern(row.plaintext, flag_pattern)]
             if candidates:
                 lines += ["", "VIGENERE CANDIDATES"]
                 for row in candidates[:5]:
                     lines += [f"Key: {row.key}", f"Evidence: average IC={row.key_length_score:.4f}", f"Result: {row.plaintext[:600]}"]
                 findings += 1
         if "affine" in classical_hint:
-            rows = [row for row in affine_crack(text) if row[0] >= baseline + .35 or has_known_flag(row[3])]
+            rows = [row for row in affine_crack(text) if row[0] >= baseline + .35 or _known_or_pattern(row[3], flag_pattern)]
             if rows:
                 lines += ["", "AFFINE CANDIDATES"] + [f"a={a} b={b}: {plain[:600]}" for _, a, b, plain in rows[:5]]
                 findings += 1
         if any(hint in classical_hint for hint in ("rail", "transposition", "column")):
-            rows = [row for row in transposition_candidates(text) if row[0] >= baseline + .35 or has_known_flag(row[3])]
+            rows = [row for row in transposition_candidates(text) if row[0] >= baseline + .35 or _known_or_pattern(row[3], flag_pattern)]
             if rows:
                 lines += ["", "TRANSPOSITION CANDIDATES"] + [f"{kind} {parameter}: {plain[:600]}" for _, kind, parameter, plain in rows[:5]]
                 findings += 1
@@ -125,6 +138,15 @@ def analyze_target(target: str, related: list[str] | None = None, description: s
     direct_flags = []
     for value in combined_sources:
         direct_flags.extend(find_flags(value))
+    if flag_pattern:
+        try:
+            _rx = re.compile(flag_pattern)
+            for value in combined_sources:
+                for m in _rx.finditer(value or ""):
+                    if m.group(0) and m.group(0) not in direct_flags:
+                        direct_flags.append(m.group(0))
+        except re.error:
+            pass
     if direct_flags:
         lines += ["", "FLAG-LIKE SOURCE VALUES (UNCONFIRMED)"] + [f"  {flag}" for flag in dict.fromkeys(direct_flags)]
         lines += ["Source literals are not marked solved until a decoding/decryption path validates them."]

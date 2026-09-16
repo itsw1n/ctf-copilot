@@ -1,13 +1,15 @@
 from __future__ import annotations
-import math, re, string
+import math, string
 
 COMMON_WORDS=(
     'the','and','this','that','flag','ctf','picoctf','secret','password','crypto',
     'caesar','decode','encoded','key','http','hello','admin','user','correct','wrong',
     'login','token','message','challenge','answer','success'
 )
-KNOWN_FLAG=re.compile(r'(?i)(?:flag|ctf|picoCTF|HTB|THM)\{')
-FLAG_LIKE=re.compile(r'[A-Za-z0-9_-]{2,32}\{[^{}\r\n]{1,256}\}')
+# Compatibility aliases: delegate to shared/flags.py (single source of truth).
+# New code must use has_known_flag()/looks_flag_like() so configured prefixes
+# from <repo-root>/config.toml are honored.
+from ..shared.flags import FLAG_LIKE, KNOWN_FLAG, has_known_flag, looks_flag_like
 
 # Structural evidence is intentionally separated from plaintext quality.
 # A valid Base64/Hex shape is evidence that a transformation is appropriate;
@@ -20,12 +22,6 @@ STRUCTURAL_WEIGHT={
     'rot13': .30, 'atbash': .24, 'caesar': .18, 'xor': .14,
 }
 SPECULATIVE={'caesar','rot13','atbash','xor'}
-
-def has_known_flag(text: str) -> bool:
-    return bool(KNOWN_FLAG.search(text or ''))
-
-def looks_flag_like(text: str) -> bool:
-    return bool(FLAG_LIKE.search(text or ''))
 
 def printable_ratio(text: str) -> float:
     if not text: return 0.0
