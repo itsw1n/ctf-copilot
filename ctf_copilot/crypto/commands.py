@@ -49,6 +49,9 @@ def register(sub):
     z=sp.add_parser('rsa',help='Run bounded RSA weakness analysis',description='Accepts one or more n/e/c parameter files or values; supports supplied factors, low-e, shared-prime, common-modulus, broadcast, Wiener, and bounded factoring.'); z.add_argument('value'); z.add_argument('--input',action='append',default=[]); z.add_argument('--max-k',type=int,default=100000); z.set_defaults(fn=lambda a: print(render_rsa([a.value]+a.input,max(0,min(a.max_k,1000000)))))
     z=sp.add_parser('block',help='Inspect or decrypt AES/DES/3DES with supplied parameters',description='Detects repeated ECB blocks and decrypts only when the required key/IV/nonce is explicitly supplied.'); z.add_argument('ciphertext'); z.add_argument('--algorithm',default='aes',choices=['aes','des','3des']); z.add_argument('--mode',default='ecb',choices=['ecb','cbc','ctr']); z.add_argument('--key'); z.add_argument('--iv'); z.add_argument('--nonce'); z.add_argument('--input-format',default='auto',choices=['auto','hex','base64','raw']); z.add_argument('--key-format',default='auto',choices=['auto','hex','base64','raw']); z.set_defaults(fn=lambda a: print(render_block(a.ciphertext,a.algorithm,a.mode,a.key,a.iv,a.nonce,a.input_format,a.key_format)))
     z=sp.add_parser('template',help='Generate an editable solve.py scaffold from crypto source',description='Parses source without executing it and refuses to overwrite a script.'); z.add_argument('source'); z.add_argument('--output'); z.set_defaults(fn=lambda a: print(generate_template(a.source,a.output)))
+    # Specialists covered by `analyze`: hidden from --help listings, still runnable.
+    from ..shared.args import hide_subcommands
+    hide_subcommands(sp, 'decode', 'caesar', 'jwt', 'hash', 'inspect', 'rsa')
 
 
 def _xor_repeat(args):
