@@ -9,7 +9,9 @@ from ..session import WebSession
 from .. import differential as diff
 
 EMAIL_RE = re.compile(r"[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}")
-FLAG_RE = re.compile(r"flag\{[^}]{1,200}\}", re.I)
+# Flag detection delegates to shared/flags.py (single source of truth) so
+# configured prefixes (e.g. DICT) are honored in IDOR comparison.
+from ...shared.flags import find_flags as _find_flags
 
 HANDOFF = (
     "handoff: confirm manually with curl 'URL_A' vs curl 'URL_B'; "
@@ -64,8 +66,8 @@ def probe(url: str, session: Any | None = None, max_requests: int = 6) -> list[s
     cmp = diff.compare(base, variant)
     base_emails = set(m.lower() for m in EMAIL_RE.findall(base.body_text or ""))
     var_emails = set(m.lower() for m in EMAIL_RE.findall(variant.body_text or ""))
-    base_flags = set(m.lower() for m in FLAG_RE.findall(base.body_text or ""))
-    var_flags = set(m.lower() for m in FLAG_RE.findall(variant.body_text or ""))
+    base_flags = set(m.lower() for m in _find_flags(base.body_text or ""))
+    var_flags = set(m.lower() for m in _find_flags(variant.body_text or ""))
     email_changed = bool(var_emails - base_emails)
     flag_changed = bool(var_flags - base_flags)
     summary = (f"status {cmp['status_before']}->{cmp['status_after']}, "
