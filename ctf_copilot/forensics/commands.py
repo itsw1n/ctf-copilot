@@ -36,6 +36,9 @@ def register(sub):
     z=sp.add_parser('strings',help='Extract printable strings',description='Use when a binary/file may contain readable passwords, URLs, flags, or clues.'); z.add_argument('path'); z.set_defaults(fn=lambda a:_strings(a.path))
     z=sp.add_parser('hex',help='Show first bytes as hex',description='Use to inspect file signatures/magic bytes manually.'); z.add_argument('path'); z.add_argument('--bytes',type=int,default=256); z.set_defaults(fn=lambda a: print(Path(a.path).read_bytes()[:max(1,min(a.bytes,4096))].hex(' ')))
     z=sp.add_parser('evidence',help='Correlate magic bytes, embedded data and clue paths',description='Explains signature mismatches, embedded files, encoded text, and relevant next tools.'); z.add_argument('path'); z.set_defaults(fn=lambda a: print(evidence(a.path)))
+    # Specialists covered by `triage`: hidden from --help listings, still runnable.
+    from ..shared.args import hide_subcommands
+    hide_subcommands(sp, 'evidence')
 
 def _persist_to_workspace(path, findings, artifacts, workspace) -> tuple[list, object | None]:
     """Copy triage artifacts flat into workspace dir + save solve-report.json.
