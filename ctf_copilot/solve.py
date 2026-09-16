@@ -5,15 +5,10 @@ import hashlib
 import json
 import re
 from .crypto.analyzer import analyze as crypto_analyze
-from .forensics.triage import triage as forensic_triage
-from .forensics.archive import inspect as archive_inspect
-from .reverse.triage import triage as reverse_triage
-from .pwn.triage import triage as pwn_triage
-from .web.analyzer import analyze as web_analyze, render as web_render
-from .shared.files import file_report
-from .shared.flags import find_flags, validate_flags
+from .web.analyzer import render as web_render
+from .shared.flags import emit_flag_config_warnings_once, find_flags, validate_flags
 from .flags.scanner import scan as flag_scan
-from .engine import collect_flags, Finding, Artifact
+from .engine import Finding
 
 
 def classify_file(p: Path) -> str:
@@ -52,7 +47,7 @@ def _finish(report, detail: str, flag_pattern: str | None, workspace: str | None
 
 def _password_candidates(description: str) -> list[str]:
     """Only accept explicit clue values; never run a wordlist/brute-force attack."""
-    values=re.findall(r'(?i)(?:password|passphrase|key)\s*(?:is|=|:)\s*["\']?([A-Za-z0-9_@!#$%^&*.-]{3,80})',description)
+    values = re.findall(r'(?i)(?:password|passphrase|key)\s*(?:is|=|:)\s*["\']?([A-Za-z0-9_@!#$%^&*.-]{3,80})', description)
     return list(dict.fromkeys(values))[:10]
 
 
@@ -204,7 +199,56 @@ def _persist_flat(report, workspace: str | None):
     return ws / "solve-report.json"
 
 
+def _rsa_correlation_findings(rsa_ctx: list[str], pattern, artifact, depth: int,
+                              primary_text: str = "", skip_no_weakness: bool = False):
+    """Shared RSA correlation helper (deduped): bounded weakness analysis over
+    target+inputs. Returns (findings, artifacts). Never raises."""
+    from .analysis.models import Artifact as _Art
+    from .analysis.models import Finding as _Find
+    findings: list = []
+    artifacts: list = []
+    try:
+        from .crypto.rsa_engine import analyze_rsa, parse_records
+        from .crypto.normalization import readable
+        if not rsa_ctx or not parse_records(rsa_ctx):
+            return findings, artifacts
+        for res in analyze_rsa(rsa_ctx)[:5]:
+            try:
+                ptext = readable(res.plaintext) if res.plaintext is not None else None
+            except Exception:
+                ptext = None
+            if skip_no_weakness and not ptext and "No supported bounded weakness" in str(getattr(res, "evidence", "")):
+                continue
+            obs = f"{res.technique}: {res.evidence}"
+            if ptext:
+                obs += f" -> {ptext[:300]}"
+            flags: list[str] = []
+            if ptext:
+                c, _cand = validate_flags(ptext, pattern=pattern, source_kind="decrypted")
+                flags = c + [x for x in _cand if x not in c]
+            findings.append(_Find("crypto", "rsa", obs[:800], 0.85 if flags else 0.6,
+                                  "bounded RSA weakness analysis over target+inputs",
+                                  ["verify recovered plaintext"], flags,
+                                  "solved" if flags else "candidate", [res.evidence[:300]]))
+            if ptext and primary_text and ptext != primary_text:
+                digest = hashlib.sha256(ptext.encode()).hexdigest()
+                artifacts.append(_Art("", "decoded", ptext[:200000], f"artifact-{digest[:12]}",
+                                      "text/plain", len(ptext.encode()), digest,
+                                      getattr(artifact, "id", "") or getattr(artifact, "path", ""),
+                                      depth + 1, "crypto-rsa"))
+    except Exception:
+        pass
+    return findings, artifacts
+
+
 def _build_registry():
+    """Analyzer registry for `ctf solve` evidence-queue loop.
+
+    Ownership (no overlap): crypto-auto owns literal text/ints, forensics-triage
+    owns files (plus RSA correlation over target+inputs), web-passive owns URLs
+    (passive GET-only, crawl=0). No active web probes run from solve; extraction
+    stays bounded via AnalysisBudget.
+    """
     from .analysis.registry import AnalyzerRegistry, FunctionAnalyzer
 
     registry = AnalyzerRegistry()
@@ -239,32 +283,12 @@ def _build_registry():
             findings.append(_Find("crypto", "crypto-auto", f"crypto probe failed: {exc}", 0.2, "guarded bounded decode", [], [], "inconclusive", [str(exc)[:300]]))
             return findings, artifacts
         # RSA over combined context (target + related inputs + description).
-        try:
-            from .crypto.rsa_engine import analyze_rsa, parse_records
-            extra = list(context.get("related_texts", []) or [])
-            desc = str(context.get("description", "") or "")
-            rsa_ctx = [text] + extra + ([desc] if desc else [])
-            if parse_records(rsa_ctx):
-                for res in analyze_rsa(rsa_ctx)[:5]:
-                    try:
-                        from .crypto.normalization import readable
-                        plain = res.plaintext
-                        ptext = readable(plain) if plain is not None else None
-                    except Exception:
-                        ptext = None
-                    obs = f"{res.technique}: {res.evidence}"
-                    if ptext:
-                        obs += f" -> {ptext[:300]}"
-                    flags: list[str] = []
-                    if ptext:
-                        c, _cand = validate_flags(ptext, pattern=context.get("flag_pattern"), source_kind="decrypted")
-                        flags = c + [x for x in _cand if x not in c]
-                    findings.append(_Find("crypto", "rsa", obs[:800], 0.85 if flags else 0.6, "bounded RSA weakness analysis", ["verify recovered plaintext"], flags, "solved" if flags else "candidate", [res.evidence[:300]]))
-                    if ptext and ptext != text:
-                        digest = hashlib.sha256(ptext.encode()).hexdigest()
-                        artifacts.append(_Art("", "decoded", ptext[:200000], f"artifact-{digest[:12]}", "text/plain", len(ptext.encode()), digest, getattr(artifact, "id", "") or getattr(artifact, "path", ""), depth + 1, "crypto-rsa"))
-        except Exception:
-            pass
+        extra = list(context.get("related_texts", []) or [])
+        desc = str(context.get("description", "") or "")
+        rsa_ctx = [text] + extra + ([desc] if desc else [])
+        rf, ra = _rsa_correlation_findings(rsa_ctx, context.get("flag_pattern"), artifact, depth, primary_text=text)
+        findings.extend(rf)
+        artifacts.extend(ra)
         for r in results[:8]:
             try:
                 chain = ' -> '.join(f'{x.kind}({x.parameter})' if x.parameter else x.kind for x in r.chain)
@@ -303,43 +327,20 @@ def _build_registry():
         # RSA correlation across target + --inputs (shared-prime/common-modulus/etc).
         # triage_file only probes single-file crypto; solve must correlate related texts.
         try:
-            from .analysis.models import Artifact as _Art2
-            from .analysis.models import Finding as _Find2
-            from .crypto.rsa_engine import analyze_rsa, parse_records
-            from .crypto.normalization import readable as _readable
-            try:
-                ftext = Path(str(value)).read_text(errors="ignore")[:20000]
-            except OSError:
-                ftext = ""
-            extra = list(context.get("related_texts", []) or [])
-            rsa_ctx = ([ftext] if ftext else []) + extra + ([desc] if desc else [])
-            # Ensure the current file text participates even if related_texts omitted it.
-            if ftext and ftext not in rsa_ctx:
-                rsa_ctx.insert(0, ftext)
-            if len(rsa_ctx) >= 1 and parse_records(rsa_ctx):
-                artifact = context.get("artifact")
-                depth = int(getattr(artifact, "depth", 0) or 0)
-                for res in analyze_rsa(rsa_ctx)[:5]:
-                    try:
-                        ptext = _readable(res.plaintext) if res.plaintext is not None else None
-                    except Exception:
-                        ptext = None
-                    obs = f"{res.technique}: {res.evidence}"
-                    if ptext:
-                        obs += f" -> {ptext[:300]}"
-                    flags: list[str] = []
-                    if ptext:
-                        c, _cand = validate_flags(ptext, pattern=pattern, source_kind="decrypted")
-                        flags = c + [x for x in _cand if x not in c]
-                    # Avoid duplicating a solo-file no-weakness state already reported by triage.
-                    if not flags and "No supported bounded weakness" in str(getattr(res, "evidence", "")):
-                        continue
-                    findings.append(_Find2("crypto", "rsa", obs[:800], 0.85 if flags else 0.6, "bounded RSA weakness analysis over target+inputs", ["verify recovered plaintext"], flags, "solved" if flags else "candidate", [res.evidence[:300]]))
-                    if ptext and ftext and ptext != ftext:
-                        digest = hashlib.sha256(ptext.encode()).hexdigest()
-                        artifacts.append(_Art2("", "decoded", ptext[:200000], f"artifact-{digest[:12]}", "text/plain", len(ptext.encode()), digest, getattr(artifact, "id", "") or getattr(artifact, "path", ""), depth + 1, "crypto-rsa"))
-        except Exception:
-            pass
+            ftext = Path(str(value)).read_text(errors="ignore")[:20000]
+        except OSError:
+            ftext = ""
+        extra = list(context.get("related_texts", []) or [])
+        rsa_ctx = ([ftext] if ftext else []) + extra + ([desc] if desc else [])
+        # Ensure the current file text participates even if related_texts omitted it.
+        if ftext and ftext not in rsa_ctx:
+            rsa_ctx.insert(0, ftext)
+        artifact = context.get("artifact")
+        depth = int(getattr(artifact, "depth", 0) or 0)
+        rf, ra = _rsa_correlation_findings(rsa_ctx, pattern, artifact, depth,
+                                           primary_text=ftext, skip_no_weakness=True)
+        findings.extend(rf)
+        artifacts.extend(ra)
         return findings, artifacts
 
     def _web_detect(value, context) -> float:
