@@ -43,14 +43,30 @@ APPLICABLE_PLUGINS = [
 ]
 
 
+def _infer_os(data: bytes) -> str:
+    """OS-aware hint: windows/linux/mac from strings (bounded, heuristic only)."""
+    try:
+        strs = printable_strings(data[:200000])[:500]
+    except Exception:
+        return "unknown"
+    blob = "\n".join(strs).lower()
+    win_hits = sum(1 for k in ("windows", "_eprocess", "ntoskrnl", "pslist") if k in blob)
+    lin_hits = sum(1 for k in ("linux", "elf", "/proc/", "vmlinux") if k in blob)
+    mac_hits = sum(1 for k in ("mac os", "darwin", "mach-o", "__dyld") if k in blob)
+    scores = {"windows": win_hits, "linux": lin_hits, "mac": mac_hits}
+    best = max(scores, key=lambda k: scores[k])
+    return best if scores[best] > 0 else "unknown"
+
+
 def _plausible_dump(size: int, data: bytes) -> tuple[bool, str]:
     strs = printable_strings(data[:200000])[:500]
     blob = "\n".join(strs).lower()
     hints = [k for k in ("windows", "linux", "_eprocess", "pslist", "kernel", "ntoskrnl", "elf") if k in blob]
+    os_hint = _infer_os(data)
     # plausible if reasonably large or carries OS hints
     if size >= 1_000_000 or hints:
-        return True, f"size={size} hints={','.join(hints) or 'none'}"
-    return False, f"size={size} hints=none (small, no OS strings)"
+        return True, f"size={size} hints={','.join(hints) or 'none'} os={os_hint}"
+    return False, f"size={size} hints=none os={os_hint} (small, no OS strings)"
 
 
 def analyze(path, budget=None) -> tuple[list, list, str]:
@@ -84,15 +100,23 @@ def analyze(path, budget=None) -> tuple[list, list, str]:
             [], "inconclusive", [reason]))
         render = "\n".join(lines + ["", "Next: volatility windows.info first, then one applicable plugin (bounded)."])
         return findings, artifacts, render
-    # Volatility present: windows.info first, bounded.
+    # Volatility present: OS-aware baseline first, bounded.
+    os_hint = _infer_os(data)
+    first_plugin = {"windows": "windows.info", "linux": "linux.pslist",
+                    "mac": "mac.pslist"}.get(os_hint, "windows.info")
     if b.can_continue():
-        _rc, txt = run_tool([vol, "-f", str(p), "windows.info"], timeout=_timeout(b), max_output=60000)
+        _rc, txt = run_tool([vol, "-f", str(p), first_plugin], timeout=_timeout(b), max_output=60000)
         snippet = (txt or "(no output)")[:4000]
-        lines += ["", "[windows.info]", snippet]
-        findings.append(_finding("forensics", "volatility-windows.info", snippet[:1500], 0.7,
-                                 "OS/profile baseline before any other plugin",
+        lines += [f"", f"[{first_plugin}] (os hint: {os_hint})", snippet]
+        findings.append(_finding("forensics", f"volatility-{first_plugin}", snippet[:1500], 0.7,
+                                 f"OS-aware baseline ({os_hint}) before any other plugin; windows.info remains the windows baseline",
                                  [f"run one applicable plugin only, e.g. {vol} -f <dump> windows.pslist"],
-                                 [], "detected", [snippet[:300]]))
+                                 [], "detected", [snippet[:300], f"os={os_hint}"]))
+        # Keep windows.info marker for windows/unknown baselines and correlation.
+        if first_plugin != "windows.info":
+            lines += ["", "Baseline note: for Windows dumps use windows.info first; volatility windows.info"]
+        else:
+            lines += ["", "Baseline note: volatility windows.info"]
         lines += ["", "Applicable bounded plugins (not auto-run): " + ", ".join(APPLICABLE_PLUGINS)]
         findings.append(_finding("forensics", "memory-next",
                                  "applicable plugins listed; run one at a time within budget", 0.5,
