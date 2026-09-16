@@ -262,6 +262,39 @@ class SqliXssRefactorTests(unittest.TestCase):
         self.assertNotIn("DELETE", methods_used)
 
 
+class DifferentialGuardTests(unittest.TestCase):
+    def test_fetch_bounded_rejects_put(self):
+        from ctf_copilot.web import differential as diff
+        from unittest.mock import MagicMock
+        s = MagicMock()
+        with self.assertRaises(ValueError):
+            diff.fetch_bounded(s, "PUT", "http://example.test/")
+
+    def test_methods_routes_through_differential(self):
+        from ctf_copilot.web.probes import methods
+        import inspect
+        src = inspect.getsource(methods)
+        self.assertIn("fetch_bounded", src)
+        self.assertIn("compare", src)
+        self.assertNotIn("session.get", src)
+        self.assertNotIn("session.head", src)
+        self.assertNotIn("session.options", src)
+
+    def test_redirect_routes_through_differential(self):
+        from ctf_copilot.web.probes import redirect
+        import inspect
+        src = inspect.getsource(redirect)
+        self.assertIn("fetch_bounded", src)
+        self.assertIn("compare", src)
+        self.assertNotIn("session.get", src)
+
+    def test_gobuster_handoffs_present(self):
+        from ctf_copilot.web.probes import idor, traversal, sqli
+        import inspect
+        for mod in (idor, traversal, sqli):
+            self.assertIn("gobuster", inspect.getsource(mod).lower())
+
+
 class SafetyTests(unittest.TestCase):
     def test_same_origin_block(self):
         from ctf_copilot.web.probes import idor, traversal, ssti, command, redirect
