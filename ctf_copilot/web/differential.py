@@ -88,22 +88,46 @@ def fetch_bounded(
     json_data: Any = None,
     extra_headers: dict[str, str] | None = None,
     max_body: int = BODY_TEXT_CAP,
+    allow_redirects: bool | None = None,
 ) -> BoundedResponse:
     """Fetch via a WebSession, returning a truncated BoundedResponse.
 
-    Works with WebSession (get/post_form/post_json) or any object exposing
-    ``.request``/``.get``. Response bodies are truncated to ``max_body`` chars.
+    Only GET/HEAD/OPTIONS/POST are allowed; PUT/PATCH/DELETE/etc raise
+    ValueError. Probes use GET/HEAD/OPTIONS only; POST exists for explicit
+    form/JSON operations via WebSession (post_json/post_form) or generic
+    ``.request`` transports.
+    Response bodies are truncated to ``max_body`` chars.
+    Same-origin/budget/caps enforced by WebSession.
     """
     method = (method or "GET").upper()
+    if method in ("PUT", "PATCH", "DELETE", "TRACE", "CONNECT"):
+        raise ValueError(f"unsupported method {method!r} (state-changing methods gated)")
+    if method not in ("GET", "HEAD", "OPTIONS", "POST"):
+        raise ValueError(f"unsupported method {method!r} (only GET/HEAD/OPTIONS/POST allowed)")
     kw: dict[str, Any] = {}
     if extra_headers:
         kw["headers"] = dict(extra_headers)
+    if allow_redirects is not None:
+        kw["allow_redirects"] = bool(allow_redirects)
     resp: Any
-    if hasattr(session, "get") and method == "GET":
+    if method == "GET" and hasattr(session, "get"):
         resp = session.get(url, params=params, **kw)
-    elif hasattr(session, "post_json") and method in ("POST", "PUT", "PATCH") and json_data is not None:
+    elif method == "HEAD" and hasattr(session, "head"):
+        if params is not None:
+            kw["params"] = params
+        resp = session.head(url, **kw)
+    elif method == "OPTIONS" and hasattr(session, "options"):
+        if params is not None:
+            kw["params"] = params
+        resp = session.options(url, **kw)
+    elif method == "POST" and hasattr(session, "post_json") and json_data is not None:
+        if params is not None:
+            kw["params"] = params
         resp = session.post_json(url, json_data, **kw)
-    elif hasattr(session, "post_form") and method in ("POST", "PUT", "PATCH"):
+    elif method == "POST" and hasattr(session, "post_form"):
+        if params is not None:
+            kw["params"] = params
+        # Never auto-preserve CSRF here: differential callers pass explicit payloads.
         resp = session.post_form(url, dict(data or {}), csrf_preserve=False, **kw)
     elif hasattr(session, "request"):
         if params is not None:
@@ -114,7 +138,7 @@ def fetch_bounded(
             kw["json"] = json_data
         resp = session.request(method, url, **kw)
     else:  # pragma: no cover - defensive
-        raise TypeError("session object needs get/post_form/post_json or request")
+        raise TypeError("session object needs get/head/options/post_form/post_json or request")
     # WebSession returns WebResponse; tolerate raw requests responses / mocks.
     status = int(getattr(resp, "status", getattr(resp, "status_code", 0)) or 0)
     req_url = str(getattr(resp, "url", url) or url)
