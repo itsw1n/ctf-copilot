@@ -1,6 +1,6 @@
 from __future__ import annotations
-import re
 from pathlib import Path
+from ..shared.flags import find_flags
 from ..shared.tooling import run_tool, which
 
 DANGEROUS=('gets','strcpy','strcat','scanf','printf','system','execve','read')
@@ -27,6 +27,8 @@ def triage(path: str) -> str:
     if 'no canary found' in low or 'canary' in low and 'disabled' in low: hints.append('No stack canary may make a stack overwrite easier to exploit.')
     if 'no pie' in low or 'pie' in low and 'disabled' in low: hints.append('No PIE means code addresses are typically stable between runs.')
     if not hints: hints.append('No obvious exploitation direction from quick static triage; inspect code/behavior in GDB.')
+    flags=find_flags(check+'\n'+imports)
+    if flags: out += ['','Flag-like strings (unconfirmed):']+[f'  {f}' for f in flags[:20]]
     out += ['','LIKELY NEXT DIRECTIONS']+[f'  - {h}' for h in hints]
     out += ['','Useful next commands:','  ctf pwn cyclic create 200','  ctf reverse imports <binary>','  ctf reverse disasm <binary> --function <name>','  ctf pwn rop <binary>']
     return '\n'.join(out)
