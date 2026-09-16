@@ -10,7 +10,7 @@ MAX_ENTRIES=250
 
 def _inspect_bytes(name: str, data: bytes, depth: int, out: list[str]):
     if len(data) > MAX_FILE:
-        out.append(f'{name}: skipped deep content analysis (>{MAX_FILE} bytes)')
+        out.append(f'{name}: skipped deep content analysis (>{MAX_FILE} bytes; size signal: large entry, inspect manually)')
         return
     text=data.decode('utf-8','ignore')
     flags=find_flags(text)
@@ -22,16 +22,31 @@ def _inspect_bytes(name: str, data: bytes, depth: int, out: list[str]):
             chain=' -> '.join(x.kind for x in r.chain)
             if find_flags(r.output):
                 out.append(f'{name}: decoded via {chain}: {r.output[:300]}')
-    if depth>=MAX_DEPTH: return
+    if depth>=MAX_DEPTH:
+        out.append(f'{name}: depth limit reached (depth={depth} max={MAX_DEPTH}); deeper nesting needs manual review')
+        return
     bio=io.BytesIO(data)
     if zipfile.is_zipfile(bio):
         bio.seek(0)
         with zipfile.ZipFile(bio) as z:
-            for info in z.infolist()[:MAX_ENTRIES]:
-                if info.is_dir() or (info.flag_bits & 1):
+            infos = z.infolist()
+            if len(infos) > MAX_ENTRIES:
+                out.append(f'{name}: entry-count signal: {len(infos)} entries (capped at {MAX_ENTRIES}); possible bomb, listing truncated')
+            for info in infos[:MAX_ENTRIES]:
+                if info.is_dir():
+                    continue
+                if info.flag_bits & 0x1:
+                    out.append(f'{name}!/{info.filename}: encrypted entry signal (password required; supply via `ctf forensics archive <file> --password ...`)')
+                    continue
+                # Zip-slip signal: traversal entries never extracted, only reported.
+                fname = info.filename or ""
+                if fname.startswith(("/", "\\")) or ".." in fname.split("/") or ".." in fname.split("\\") or (len(fname) >= 2 and fname[1] == ":"):
+                    out.append(f'{name}!/{info.filename}: traversal-entry signal (zip-slip rejected; not extracted)')
                     continue
                 try: child=z.read(info)
-                except Exception: continue
+                except Exception as exc:
+                    out.append(f'{name}!/{info.filename}: unreadable entry ({exc.__class__.__name__})')
+                    continue
                 _inspect_bytes(f'{name}!/{info.filename}',child,depth+1,out)
 
 def inspect(path: str) -> str:
