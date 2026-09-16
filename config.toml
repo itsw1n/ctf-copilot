@@ -1,0 +1,8 @@
+[flags]
+
+# Add competition-specific prefixes here.
+# "DICT" means DICT{...}
+prefixes = []
+
+# Advanced custom regex formats.
+patterns = []
