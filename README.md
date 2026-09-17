@@ -15,39 +15,41 @@ It is aimed at common **easy and medium** challenge patterns. Hard, custom, or m
 
 ## What it helps with
 
-| Category | First-pass help |
-| --- | --- |
-| Crypto | Encodings, Caesar/ROT, XOR, RSA checks, supplied encryption-source inspection |
-| Forensics | File triage, strings, metadata, archives, embedded data, stego and PCAP handoffs |
-| Web | Passive same-origin mapping, forms, scripts, endpoints, parameters, authorized tests |
-| Reverse / Pwn | Binary triage, imports, functions, protections, and next-step hints |
-| Workflow | Workspaces, reports, flag scans, tool doctor, and beginner-oriented command help |
+| Category      | First-pass help                                                                      |
+| ------------- | ------------------------------------------------------------------------------------ |
+| Crypto        | Encodings, Caesar/ROT, XOR, RSA checks, supplied encryption-source inspection        |
+| Forensics     | File triage, strings, metadata, archives, embedded data, stego and PCAP handoffs     |
+| Web           | Passive same-origin mapping, forms, scripts, endpoints, parameters, authorized tests |
+| Reverse / Pwn | Binary triage, imports, functions, protections, and next-step hints                  |
+| Workflow      | Workspaces, reports, flag scans, tool doctor, and beginner-oriented command help     |
 
-## Safe install on Kali/Linux
+## Install
+
+Requires Python 3.10+ (3.11 or 3.12 recommended) and `cmake` with a C compiler.
 
 ```bash
-cd ~/tools/ctf-copilot
+git clone git@github.com:itsw1n/ctf-copilot.git ctf-copilot && cd ctf-copilot
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+pip install -e .
+ctf --help
+```
+
+Run `source .venv/bin/activate` once in each new terminal.
+
+Install the system tools manually from [`requirements-system.txt`](requirements-system.txt) using your package manager — check what's missing with `ctf tools --doctor`.
+
+### Kali (alternative)
+
+On Kali Linux you can skip the manual steps above — the installer handles everything including system packages:
+
+```bash
+git clone git@github.com:itsw1n/ctf-copilot.git ctf-copilot && cd ctf-copilot
 ./scripts/install.sh
 source .venv/bin/activate
 ctf --help
 ```
-
-The installer uses a project-local Python virtual environment (`.venv`) and
-does not modify your system Python. It also checks every package in
-`requirements-system.txt`. If all required Kali helpers already exist, it does
-not use `sudo`. If any are missing, it prints the exact missing package names
-and uses `sudo apt` to install only those packages from your configured Kali
-repositories.
-
-`sudo` is needed only for system package installation; the `ctf` command never
-runs as root. Review the repository and the package list before running an
-installer on any machine. At the end, the installer runs:
-
-```bash
-ctf tools --doctor
-```
-
-to show which command-line helpers are available.
 
 ## Start in 30 seconds
 
