@@ -52,7 +52,8 @@ def _persist_to_workspace(path, findings, artifacts, workspace) -> tuple[list, o
     import hashlib
     from ..analysis.models import Artifact, SolveReport
     from ..analysis.runner import artifact_for
-    ws = Path(str(workspace))
+    from ..workspace.manager import resolve as _resolve_workspace
+    ws = _resolve_workspace(workspace)
     ws.mkdir(parents=True, exist_ok=True)
 
     def _sha(p: Path) -> str | None:
