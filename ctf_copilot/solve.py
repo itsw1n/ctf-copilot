@@ -78,12 +78,9 @@ def _sha_repr(value: object) -> str:
 
 def _resolve_workspace_dir(name: str) -> Path:
     from .workspace import manager
-    s = str(name)
-    p = Path(s)
-    if p.is_absolute() or "/" in s or "\\" in s or s.startswith("."):
-        p.mkdir(parents=True, exist_ok=True)
-        return p
-    return manager.new(s)
+    p = manager.resolve(name)
+    p.mkdir(parents=True, exist_ok=True)
+    return p
 
 
 def _persist_flat(report, workspace: str | None):
